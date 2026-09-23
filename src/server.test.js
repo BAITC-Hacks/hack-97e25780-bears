@@ -20,3 +20,13 @@ test('POST /api/recommend-tasks returns 503 when API key is missing', async () =
   assert.equal(response.status, 503);
   assert.match(response.body.error, /OPENAI_API_KEY/i);
 });
+
+test('POST /api/recommend-tasks rejects invalid taskCount', async () => {
+  const response = await request(app).post('/api/recommend-tasks').send({
+    businessProblem: 'Need to improve application onboarding',
+    taskCount: 0,
+  });
+
+  assert.equal(response.status, 400);
+  assert.match(response.body.error, /taskCount/i);
+});
