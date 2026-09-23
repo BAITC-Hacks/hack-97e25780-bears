@@ -4,3 +4,4 @@
 - **Frontend**: React / TypeScript (или Vue / HTML+CSS+JS)
 - **Backend**: Go / C#
 - **Database**: PostgreSQL
+--------------------------
