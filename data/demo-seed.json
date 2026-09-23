@@ -1,0 +1,311 @@
+{
+  "drafts": [
+    {
+      "id": "draft-demo",
+      "industry": "Общественное питание",
+      "text": "Нужен сервис, который поможет сократить очереди в студенческой столовой"
+    },
+    {
+      "id": "draft-2",
+      "industry": "Ритейл",
+      "text": "Хотим лучше прогнозировать остатки товаров в небольших магазинах"
+    },
+    {
+      "id": "draft-3",
+      "industry": "Экология",
+      "text": "Нужно удобнее собирать обращения о переполненных контейнерах"
+    },
+    {
+      "id": "draft-4",
+      "industry": "Образование",
+      "text": "Сделайте помощника для первокурсников"
+    },
+    {
+      "id": "draft-5",
+      "industry": "Логистика",
+      "text": "Нужна панель для анализа задержек городских доставок"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-1",
+      "title": "Прогноз очередей в столовой кампуса",
+      "industry": "Общественное питание",
+      "draftText": "Нужен сервис, который поможет сократить очереди в студенческой столовой",
+      "context": "В обеденные часы у двух касс образуются очереди, а посетители не знают время ожидания.",
+      "need": "Нужно прогнозировать загрузку касс и подсказывать посетителям менее загруженное время.",
+      "users": "Студенты и сотрудники кампуса, которые посещают столовую в обеденный перерыв.",
+      "data": "Доступны обезличенная история чеков и загрузка касс по пятнадцатиминутным интервалам.",
+      "constraints": "Срок две недели, без персональных данных, развёртывание только в тестовом контуре.",
+      "expectedResult": "Рабочий веб-прототип прогноза очереди и простая панель для администратора столовой.",
+      "successCriteria": "На тестовой неделе среднее ожидание должно снизиться с 12 до 7 минут.",
+      "contact": "canteen@example.kz",
+      "interactionFormat": "Две онлайн-консультации в неделю и ответы представителя бизнеса в общем канале.",
+      "status": "published",
+      "selectionOutcome": "pending",
+      "rating": {
+        "score": 100,
+        "level": "priority",
+        "breakdown": {
+          "contextAndNeed": 20,
+          "dataAndMaterials": 20,
+          "expectedResult": 15,
+          "successCriteria": 15,
+          "constraints": 10,
+          "users": 10,
+          "businessConnection": 10
+        },
+        "missing": [],
+        "suggestions": []
+      },
+      "createdAt": "2026-09-23T08:00:00Z",
+      "updatedAt": "2026-09-23T09:00:00Z"
+    },
+    {
+      "id": "task-2",
+      "title": "Прогноз остатков для небольших магазинов",
+      "industry": "Ритейл",
+      "draftText": "Хотим лучше прогнозировать остатки товаров в небольших магазинах",
+      "context": "Владельцы магазинов поздно замечают дефицит популярных товаров и теряют ежедневные продажи.",
+      "need": "Нужен прогноз остатка на ближайшие семь дней с предупреждением о риске дефицита.",
+      "users": "Владельцы и управляющие магазинов",
+      "data": "Есть выгрузка продаж и остатков за шесть месяцев в CSV, обновляемая один раз в сутки.",
+      "constraints": "Только CSV без прямого доступа к учётной системе",
+      "expectedResult": "Интерактивный прототип с прогнозом по товарам и выгрузкой списка для закупки.",
+      "successCriteria": "Точность прогноза должна быть не ниже 80% на контрольной выборке.",
+      "contact": "retail@example.kz",
+      "interactionFormat": "Одна встреча в начале и проверка результата",
+      "status": "published",
+      "selectionOutcome": "pending",
+      "rating": {
+        "score": 95,
+        "level": "priority",
+        "breakdown": {
+          "contextAndNeed": 20,
+          "dataAndMaterials": 20,
+          "expectedResult": 15,
+          "successCriteria": 15,
+          "constraints": 10,
+          "users": 5,
+          "businessConnection": 10
+        },
+        "missing": [],
+        "suggestions": [
+          "Подробно опишите пользователей и их рабочий процесс."
+        ]
+      },
+      "createdAt": "2026-09-23T08:05:00Z",
+      "updatedAt": "2026-09-23T08:55:00Z"
+    },
+    {
+      "id": "task-3",
+      "title": "Карта переполненных контейнеров",
+      "industry": "Экология",
+      "draftText": "Нужно удобнее собирать обращения о переполненных контейнерах",
+      "context": "Обращения приходят в разные каналы, поэтому диспетчер видит проблему с задержкой.",
+      "need": "Собрать обращения на карте",
+      "users": "Городские диспетчеры и подрядчики, планирующие ежедневные маршруты вывоза отходов.",
+      "data": "Есть адреса площадок",
+      "constraints": "Пилот в одном районе",
+      "expectedResult": "Карта заявок",
+      "successCriteria": "Сократить время обработки обращений",
+      "contact": "eco@example.kz",
+      "interactionFormat": "Еженедельная встреча с диспетчером и письменные ответы на вопросы в течение рабочего дня.",
+      "status": "published",
+      "selectionOutcome": "pending",
+      "rating": {
+        "score": 65,
+        "level": "working",
+        "breakdown": {
+          "contextAndNeed": 15,
+          "dataAndMaterials": 10,
+          "expectedResult": 7.5,
+          "successCriteria": 7.5,
+          "constraints": 5,
+          "users": 10,
+          "businessConnection": 10
+        },
+        "missing": [],
+        "suggestions": [
+          "Уточните потребность бизнеса и ожидаемое изменение.",
+          "Перечислите доступные данные и их формат.",
+          "Опишите конкретный результат работы команды.",
+          "Добавьте измеримое значение к критериям успеха."
+        ]
+      },
+      "createdAt": "2026-09-23T08:10:00Z",
+      "updatedAt": "2026-09-23T08:50:00Z"
+    },
+    {
+      "id": "task-4",
+      "title": "Помощник первокурсника",
+      "industry": "Образование",
+      "draftText": "Сделайте помощника для первокурсников",
+      "context": "Первокурсникам сложно найти ответы",
+      "need": "Нужен понятный помощник",
+      "users": "Первокурсники",
+      "data": "",
+      "constraints": "Демо за две недели",
+      "expectedResult": "",
+      "successCriteria": "",
+      "contact": "student-office@example.kz",
+      "interactionFormat": "",
+      "status": "published",
+      "selectionOutcome": "pending",
+      "rating": {
+        "score": 25,
+        "level": "draft",
+        "breakdown": {
+          "contextAndNeed": 10,
+          "dataAndMaterials": 0,
+          "expectedResult": 0,
+          "successCriteria": 0,
+          "constraints": 5,
+          "users": 5,
+          "businessConnection": 5
+        },
+        "missing": ["data", "expectedResult", "successCriteria", "interactionFormat"],
+        "suggestions": [
+          "Опишите доступные данные и материалы.",
+          "Укажите конкретный результат работы команды.",
+          "Добавьте измеримые критерии успеха.",
+          "Опишите формат консультаций с бизнесом."
+        ]
+      },
+      "createdAt": "2026-09-23T08:15:00Z",
+      "updatedAt": "2026-09-23T08:45:00Z"
+    },
+    {
+      "id": "task-5",
+      "title": "Аналитика задержек городских доставок",
+      "industry": "Логистика",
+      "draftText": "Нужна панель для анализа задержек городских доставок",
+      "context": "Диспетчеры видят факт опоздания только после жалобы клиента и не могут найти повторяющиеся причины.",
+      "need": "Нужно показывать проблемные зоны и причины задержек по завершённым маршрутам.",
+      "users": "Диспетчеры доставки",
+      "data": "Доступна история маршрутов, плановое и фактическое время доставки за три месяца.",
+      "constraints": "Без геоданных клиентов",
+      "expectedResult": "Панель с картой задержек, фильтрами по периоду и экспортом краткого отчёта.",
+      "successCriteria": "Диспетчер должен находить основные причины задержек не более чем за 5 минут.",
+      "contact": "logistics@example.kz",
+      "interactionFormat": "Созвон по запросу",
+      "status": "published",
+      "selectionOutcome": "pending",
+      "rating": {
+        "score": 88,
+        "level": "ready",
+        "breakdown": {
+          "contextAndNeed": 20,
+          "dataAndMaterials": 20,
+          "expectedResult": 15,
+          "successCriteria": 15,
+          "constraints": 5,
+          "users": 5,
+          "businessConnection": 7.5
+        },
+        "missing": [],
+        "suggestions": [
+          "Уточните ограничения по срокам и технологиям.",
+          "Подробно опишите пользователей панели.",
+          "Уточните регулярность и канал консультаций."
+        ]
+      },
+      "createdAt": "2026-09-23T08:20:00Z",
+      "updatedAt": "2026-09-23T08:40:00Z"
+    }
+  ],
+  "teams": [
+    {
+      "id": "team-1",
+      "name": "Data Nomads",
+      "interests": ["аналитика", "городские сервисы"],
+      "skills": ["прогнозирование", "UX"],
+      "technologies": ["Python", "React"]
+    },
+    {
+      "id": "team-2",
+      "name": "Green Byte",
+      "interests": ["экология", "карты"],
+      "skills": ["геоаналитика", "backend"],
+      "technologies": ["FastAPI", "PostgreSQL"]
+    },
+    {
+      "id": "team-3",
+      "name": "Campus Lab",
+      "interests": ["образование", "кампус"],
+      "skills": ["frontend", "исследования"],
+      "technologies": ["TypeScript", "Next.js"]
+    },
+    {
+      "id": "team-4",
+      "name": "Route Minds",
+      "interests": ["логистика", "оптимизация"],
+      "skills": ["визуализация", "машинное обучение"],
+      "technologies": ["Python", "Vue"]
+    },
+    {
+      "id": "team-5",
+      "name": "Retail Pulse",
+      "interests": ["ритейл", "малый бизнес"],
+      "skills": ["аналитика данных", "продукт"],
+      "technologies": ["Pandas", "React"]
+    }
+  ],
+  "proposals": [
+    {
+      "id": "proposal-1",
+      "taskId": "task-1",
+      "teamId": "team-1",
+      "solutionIdea": "Прогнозировать загрузку по истории чеков и показывать посетителям понятный индикатор очереди.",
+      "plan": "Очистить данные, собрать базовый прогноз, создать интерфейс и проверить его на исторической неделе.",
+      "duration": "2 недели",
+      "prototypeUrl": "https://example.com/canteen-demo",
+      "status": "submitted",
+      "createdAt": "2026-09-23T10:00:00Z"
+    },
+    {
+      "id": "proposal-2",
+      "taskId": "task-2",
+      "teamId": "team-5",
+      "solutionIdea": "Собрать прогноз спроса и список рекомендуемых закупок по каждому магазину.",
+      "plan": "Проверить данные, построить baseline, добавить панель и оценить точность.",
+      "duration": "3 недели",
+      "prototypeUrl": "",
+      "status": "submitted",
+      "createdAt": "2026-09-23T10:05:00Z"
+    },
+    {
+      "id": "proposal-3",
+      "taskId": "task-3",
+      "teamId": "team-2",
+      "solutionIdea": "Объединить обращения на карте и автоматически группировать близкие заявки.",
+      "plan": "Настроить импорт, карту, фильтры и рабочее место диспетчера.",
+      "duration": "2 недели",
+      "prototypeUrl": "https://example.com/eco-map",
+      "status": "submitted",
+      "createdAt": "2026-09-23T10:10:00Z"
+    },
+    {
+      "id": "proposal-4",
+      "taskId": "task-4",
+      "teamId": "team-3",
+      "solutionIdea": "Создать поиск по проверенной базе ответов студенческого офиса.",
+      "plan": "Собрать вопросы, сделать поиск и проверить ответы с куратором.",
+      "duration": "10 дней",
+      "prototypeUrl": "",
+      "status": "submitted",
+      "createdAt": "2026-09-23T10:15:00Z"
+    },
+    {
+      "id": "proposal-5",
+      "taskId": "task-5",
+      "teamId": "team-4",
+      "solutionIdea": "Показать задержки на карте и выделять повторяющиеся причины по маршрутам.",
+      "plan": "Подготовить данные, собрать метрики, карту и экспорт отчёта.",
+      "duration": "2 недели",
+      "prototypeUrl": "https://example.com/routes",
+      "status": "submitted",
+      "createdAt": "2026-09-23T10:20:00Z"
+    }
+  ]
+}
