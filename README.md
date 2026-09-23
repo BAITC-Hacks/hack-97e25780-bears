@@ -1,2 +1,6 @@
-# hack-97e25780-bears
-Hackathon team repository for bears.
+## AI Sana Task Generator
+- Role: Frontend
+## Tech Stack
+- **Frontend**: React / TypeScript (или Vue / HTML+CSS+JS)
+- **Backend**: Go / C#
+- **Database**: PostgreSQL
