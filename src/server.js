@@ -1,12 +1,14 @@
 import 'dotenv/config';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
 import OpenAI from 'openai';
 import { createApp } from './backend-app.js';
-import { demoSeed } from './seed.js';
+import { appDemoSeed } from './profile-seed.js';
 import { FrontendAiService } from './services/frontend-ai-service.js';
 import { GeminiCardService } from './services/gemini-card-service.js';
 import { QuestionService } from './services/question-service.js';
 import { MemoryStore } from './storage/memory-store.js';
+import { FileStore } from './storage/file-store.js';
 
 function positiveInteger(value, fallback) {
   const parsed = Number(value);
@@ -18,9 +20,13 @@ const timeoutMs = positiveInteger(process.env.OPENAI_TIMEOUT_MS, 10_000);
 const apiKey = process.env.OPENAI_API_KEY?.trim();
 const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
 const client = apiKey ? new OpenAI({ apiKey, maxRetries: 0 }) : null;
+const projectRoot = fileURLToPath(new URL('../', import.meta.url));
+const store = process.env.DATA_FILE === ':memory:'
+  ? new MemoryStore(appDemoSeed)
+  : new FileStore(resolve(projectRoot, process.env.DATA_FILE || 'data/runtime/startcard.json'), appDemoSeed);
 
 export const app = createApp({
-  store: new MemoryStore(demoSeed),
+  store,
   questionService: new QuestionService({
     client,
     model: process.env.OPENAI_MODEL || 'gpt-4o-mini',

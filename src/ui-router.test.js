@@ -21,12 +21,17 @@ const sampleCard = {
 };
 
 function context() {
-  const store = new MemoryStore({ tasks: [], proposals: [], teams: [] });
+  const store = new MemoryStore({ tasks: [], proposals: [], teams: [], profiles: [
+    { id: 'business-1', role: 'business', name: 'Owner', company: sampleCard.company, avatar: '' },
+    ...['student-demo', 'student-a', 'student-b', 'student-c'].map((id) => ({
+      id, role: 'student', name: 'Demo Student', teamName: 'Campus Team', avatar: '', telegram: '@demo',
+    })),
+  ] });
   return { store, app: createApp({ store }) };
 }
 
 async function publish(app, overrides = {}) {
-  const result = await request(app).post('/api/ui/cards').send({ card: { ...sampleCard, ...overrides } }).expect(201);
+  const result = await request(app).post('/api/ui/cards').send({ profileId: 'business-1', card: { ...sampleCard, ...overrides } }).expect(201);
   return result.body.card;
 }
 
@@ -50,6 +55,7 @@ test('UI publication assigns identity and rating, preserves inputs and shares ge
   assert.equal(card.reward, '');
   assert.equal(card.businessContact, sampleCard.businessContact);
   assert.equal(card.company, sampleCard.company);
+  assert.equal(card.businessId, 'business-1');
   assert.deepEqual(card.tags, sampleCard.tags);
   const canonical = store.getTask(card.id);
   assert.equal(canonical.status, 'published');
@@ -64,6 +70,7 @@ test('UI proposals and manual selection survive fresh requests without fake awar
   const { app, store } = context();
   const card = await publish(app);
   const created = await request(app).post('/api/ui/proposals').send({
+    profileId: 'student-demo',
     proposal: proposalFor(card, { id: 'forged', status: 'accepted', awardedScore: 85 }),
   }).expect(201);
   const proposal = created.body.proposal;
@@ -73,18 +80,18 @@ test('UI proposals and manual selection survive fresh requests without fake awar
   assert.equal(proposal.cardTitle, card.title);
   assert.equal(proposal.prototypeLink, '');
   const selected = await request(app).post(`/api/ui/proposals/${proposal.id}/selection`)
-    .send({ action: 'accept' }).expect(200);
+    .send({ profileId: 'business-1', action: 'accept' }).expect(200);
   assert.equal(selected.body.proposal.status, 'accepted');
   assert.equal(selected.body.proposal.awardedScore, undefined);
   // A new client/app reading the same server store sees the full persisted shapes.
   const freshClient = request(createApp({ store }));
-  const state = await freshClient.get('/api/ui/state').expect(200);
+  const state = await freshClient.get('/api/ui/state?profileId=student-demo').expect(200);
   assert.equal(state.body.proposals[0].status, 'accepted');
   assert.equal(state.body.proposals[0].teamName, 'Campus Team');
   assert.equal(state.body.cards[0].applicantsCount, 1);
   assert.equal(store.getTask(card.id).selectionOutcome, 'selected');
   await request(app).post(`/api/ui/proposals/${proposal.id}/selection`)
-    .send({ action: 'reject' }).expect(409);
+    .send({ profileId: 'business-1', action: 'reject' }).expect(409);
 });
 
 test('UI accepts several different teams and rejects invalid, duplicate or closed proposals', async () => {
@@ -93,37 +100,37 @@ test('UI accepts several different teams and rejects invalid, duplicate or close
   const ids = [];
   for (const studentId of ['student-a', 'student-b']) {
     const created = await request(app).post('/api/ui/proposals')
-      .send({ proposal: proposalFor(card, { studentId }) }).expect(201);
+      .send({ profileId: studentId, proposal: proposalFor(card, { studentId }) }).expect(201);
     ids.push(created.body.proposal.id);
   }
   await request(app).post('/api/ui/proposals')
-    .send({ proposal: proposalFor(card, { studentId: 'student-a' }) }).expect(409);
+    .send({ profileId: 'student-a', proposal: proposalFor(card, { studentId: 'student-a' }) }).expect(409);
   for (const id of ids) {
-    await request(app).post(`/api/ui/proposals/${id}/selection`).send({ action: 'accept' }).expect(200);
+    await request(app).post(`/api/ui/proposals/${id}/selection`).send({ profileId: 'business-1', action: 'accept' }).expect(200);
   }
   assert.equal(store.listProposals(card.id).filter((item) => item.status === 'accepted').length, 2);
   store.updateTask(card.id, { status: 'closed' });
   await request(app).post('/api/ui/proposals')
-    .send({ proposal: proposalFor(card, { studentId: 'student-c' }) }).expect(409);
-  await request(app).post(`/api/ui/proposals/${ids[0]}/selection`).send({ action: 'reject' }).expect(409);
+    .send({ profileId: 'student-c', proposal: proposalFor(card, { studentId: 'student-c' }) }).expect(409);
+  await request(app).post(`/api/ui/proposals/${ids[0]}/selection`).send({ profileId: 'business-1', action: 'reject' }).expect(409);
 });
 
 test('UI rejects missing fields, unsafe URLs and invalid selections before mutating storage', async () => {
   const { app, store } = context();
-  await request(app).post('/api/ui/cards').send({ card: { ...sampleCard, title: ' ' } }).expect(400);
-  await request(app).post('/api/ui/cards').send({ card: { ...sampleCard, tags: [10] } }).expect(400);
-  await request(app).post('/api/ui/cards').send({ card: { ...sampleCard, deadlineDays: 0 } }).expect(400);
+  await request(app).post('/api/ui/cards').send({ profileId: 'business-1', card: { ...sampleCard, title: ' ' } }).expect(400);
+  await request(app).post('/api/ui/cards').send({ profileId: 'business-1', card: { ...sampleCard, tags: [10] } }).expect(400);
+  await request(app).post('/api/ui/cards').send({ profileId: 'business-1', card: { ...sampleCard, deadlineDays: 0 } }).expect(400);
   assert.equal(store.listCatalog().length, 0);
   const card = await publish(app);
   await request(app).post('/api/ui/proposals')
-    .send({ proposal: proposalFor(card, { solutionIdea: '' }) }).expect(400);
+    .send({ profileId: 'student-demo', proposal: proposalFor(card, { solutionIdea: '' }) }).expect(400);
   await request(app).post('/api/ui/proposals')
-    .send({ proposal: proposalFor(card, { prototypeLink: 'javascript:alert(1)' }) }).expect(400);
+    .send({ profileId: 'student-demo', proposal: proposalFor(card, { prototypeLink: 'javascript:alert(1)' }) }).expect(400);
   await request(app).post('/api/ui/proposals')
-    .send({ proposal: proposalFor(card, { cardId: 'missing' }) }).expect(404);
+    .send({ profileId: 'student-demo', proposal: proposalFor(card, { cardId: 'missing' }) }).expect(404);
   assert.equal(store.listProposals(card.id).length, 0);
-  await request(app).post('/api/ui/proposals/missing/selection').send({ action: 'promote' }).expect(400);
-  await request(app).post('/api/ui/proposals/missing/selection').send({ action: 'accept' }).expect(404);
+  await request(app).post('/api/ui/proposals/missing/selection').send({ profileId: 'business-1', action: 'promote' }).expect(400);
+  await request(app).post('/api/ui/proposals/missing/selection').send({ profileId: 'business-1', action: 'accept' }).expect(404);
 });
 
 test('a fresh server memory store resets UI records; generic task validation remains unchanged', async () => {
@@ -131,7 +138,7 @@ test('a fresh server memory store resets UI records; generic task validation rem
   await publish(app);
   const restarted = context();
   const state = await request(restarted.app).get('/api/ui/state').expect(200);
-  assert.deepEqual(state.body, { cards: [], proposals: [] });
+  assert.deepEqual(state.body, { cards: [], proposals: [], notifications: [], unreadCount: 0 });
   const draft = await request(app).post('/api/tasks').send({
     draftText: 'A generic task', title: 'Task', context: 'Context', contact: '@telegram-only',
   }).expect(201);

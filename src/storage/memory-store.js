@@ -7,9 +7,45 @@ function clone(value) {
 
 export class MemoryStore {
   constructor(seed = { tasks: [], teams: [], proposals: [] }) {
-    this.tasks = new Map((seed.tasks || []).map((task) => [task.id, clone(task)]));
-    this.teams = new Map((seed.teams || []).map((team) => [team.id, clone(team)]));
-    this.proposals = new Map((seed.proposals || []).map((proposal) => [proposal.id, clone(proposal)]));
+    this.storageKind = 'memory';
+    this.inTransaction = false;
+    this.restore(seed);
+  }
+
+  restore(snapshot) {
+    for (const key of ['tasks', 'teams', 'proposals', 'uiCards', 'uiProposals', 'profiles', 'notifications']) {
+      this[key] = new Map((snapshot[key] || []).map((item) => [item.id, clone(item)]));
+    }
+  }
+
+  snapshot() {
+    return {
+      version: 1,
+      ...Object.fromEntries(['tasks', 'teams', 'proposals', 'uiCards', 'uiProposals', 'profiles', 'notifications']
+        .map((key) => [key, [...this[key].values()].map(clone)])),
+    };
+  }
+
+  // UI operations group related records and notifications into one commit.
+  // Callbacks are synchronous so no other request can see a partial mutation.
+  transaction(operation) {
+    if (this.inTransaction) return operation();
+    const before = this.snapshot();
+    this.inTransaction = true;
+    try {
+      const result = operation();
+      this.persist();
+      return result;
+    } catch (error) {
+      this.restore(before);
+      throw error;
+    } finally {
+      this.inTransaction = false;
+    }
+  }
+
+  persist() {
+    // The memory implementation deliberately has no disk side effects.
   }
 
   createTask(input) {
@@ -35,7 +71,7 @@ export class MemoryStore {
       updatedAt: now,
     };
     task.rating = calculateRating(task);
-    this.tasks.set(task.id, task);
+    this.transaction(() => this.tasks.set(task.id, task));
     return clone(task);
   }
 
@@ -49,7 +85,7 @@ export class MemoryStore {
     if (!current) return null;
     const task = { ...current, ...patch, updatedAt: new Date().toISOString() };
     task.rating = calculateRating(task);
-    this.tasks.set(id, task);
+    this.transaction(() => this.tasks.set(id, task));
     return clone(task);
   }
 
@@ -81,7 +117,7 @@ export class MemoryStore {
       status: 'submitted',
       createdAt: new Date().toISOString(),
     };
-    this.proposals.set(proposal.id, proposal);
+    this.transaction(() => this.proposals.set(proposal.id, proposal));
     return clone(proposal);
   }
 
@@ -94,7 +130,7 @@ export class MemoryStore {
     const proposal = this.proposals.get(id);
     if (!proposal) return null;
     const updated = { ...proposal, ...patch };
-    this.proposals.set(id, updated);
+    this.transaction(() => this.proposals.set(id, updated));
     return clone(updated);
   }
 

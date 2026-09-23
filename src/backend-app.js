@@ -1,6 +1,6 @@
 import express from 'express';
 import { isValidContact } from './domain/rating.js';
-import { demoSeed } from './seed.js';
+import { appDemoSeed } from './profile-seed.js';
 import { FrontendAiService } from './services/frontend-ai-service.js';
 import { GeminiCardService } from './services/gemini-card-service.js';
 import { QUESTION_TARGET_FIELDS, QuestionService } from './services/question-service.js';
@@ -133,7 +133,7 @@ function parseProposal(body) {
 }
 
 export function createApp({
-  store = new MemoryStore(demoSeed),
+  store = new MemoryStore(appDemoSeed),
   questionService = new QuestionService(),
   cardOptimizationService = new GeminiCardService(),
   frontendAiService = new FrontendAiService(),
@@ -158,7 +158,7 @@ export function createApp({
     res.json({
       status: 'ok',
       service: 'hack-97e25780-bears',
-      storage: 'memory',
+      storage: store.storageKind,
       aiConfigured,
       aiProviders,
       timestamp: new Date().toISOString(),
