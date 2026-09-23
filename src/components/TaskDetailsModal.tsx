@@ -18,6 +18,7 @@ interface TaskDetailsModalProps {
   onClose: () => void;
   onApply: (card: TaskCard) => void;
   onToggleSave: (cardId: string) => void;
+  studentActions?: boolean;
 }
 
 export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
@@ -26,6 +27,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
   onClose,
   onApply,
   onToggleSave,
+  studentActions = true,
 }) => {
   if (!isOpen || !card) return null;
 
@@ -61,7 +63,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
+            {studentActions && <button
               onClick={() => onToggleSave(card.id)}
               className={`p-2 rounded-xl border transition-all ${
                 card.saved
@@ -71,7 +73,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
               title="Сохранить"
             >
               <Bookmark className={`w-5 h-5 ${card.saved ? 'fill-amber-400' : ''}`} />
-            </button>
+            </button>}
             <button
               onClick={onClose}
               className="p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-white/[0.08] transition-colors"
@@ -200,7 +202,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
               Закрыть
             </button>
 
-            {card.hasApplied ? (
+            {studentActions && (card.hasApplied ? (
               <div className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold">
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Предложение подано</span>
@@ -216,7 +218,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                 <span>Подать предложение команды</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
-            )}
+            ))}
           </div>
         </div>
       </div>

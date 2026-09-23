@@ -33,12 +33,12 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
   onClose,
   onSubmitProposal,
 }) => {
-  const [teamName, setTeamName] = useState(student.teamName || 'Neural Bears Squad');
+  const [teamName, setTeamName] = useState(student.teamName || '');
   const [solutionIdea, setSolutionIdea] = useState('');
   const [workPlan, setWorkPlan] = useState('');
   const [proposedDeadline, setProposedDeadline] = useState('');
   const [prototypeLink, setPrototypeLink] = useState('');
-  const [telegram, setTelegram] = useState(student.telegram || '@ivan_startcard');
+  const [telegram, setTelegram] = useState(student.telegram || '');
   const [isSuccess, setIsSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');

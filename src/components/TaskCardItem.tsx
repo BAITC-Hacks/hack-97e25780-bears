@@ -17,6 +17,7 @@ interface TaskCardItemProps {
   onApply: (card: TaskCard) => void;
   onToggleSave: (cardId: string) => void;
   onViewDetails: (card: TaskCard) => void;
+  studentActions?: boolean;
 }
 
 export const TaskCardItem: React.FC<TaskCardItemProps> = ({
@@ -24,6 +25,7 @@ export const TaskCardItem: React.FC<TaskCardItemProps> = ({
   onApply,
   onToggleSave,
   onViewDetails,
+  studentActions = true,
 }) => {
   // Determine deadline badge urgency style
   const getDeadlineBadge = () => {
@@ -119,7 +121,7 @@ export const TaskCardItem: React.FC<TaskCardItemProps> = ({
               <span>{card.readinessScore || 0} б.</span>
             </div>
 
-            <button
+            {studentActions && <button
               onClick={() => onToggleSave(card.id)}
               className={`p-1.5 rounded-lg border transition-all ${
                 card.saved
@@ -129,7 +131,7 @@ export const TaskCardItem: React.FC<TaskCardItemProps> = ({
               title={card.saved ? 'Удалить из сохраненных' : 'Сохранить задачу'}
             >
               <Bookmark className={`w-3.5 h-3.5 ${card.saved ? 'fill-amber-400' : ''}`} />
-            </button>
+            </button>}
           </div>
         </div>
 
@@ -191,7 +193,7 @@ export const TaskCardItem: React.FC<TaskCardItemProps> = ({
 
         {/* Prominent Apply Button */}
         <div onClick={(e) => e.stopPropagation()}>
-          {card.hasApplied ? (
+          {!studentActions ? <button onClick={() => onViewDetails(card)} className="px-3 py-1.5 rounded-xl text-xs text-amber-300 border border-amber-500/30 hover:bg-amber-500/10">Открыть задачу</button> : card.hasApplied ? (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
               <span>Предложение отправлено</span>

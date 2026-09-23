@@ -102,6 +102,35 @@ export interface BusinessProfile {
   activeCardsCount: number;
 }
 
+export type UserProfile =
+  | (StudentProfile & { role: 'student' })
+  | (BusinessProfile & { role: 'business' });
+
+export interface ProfileInput {
+  role?: UserRole;
+  name: string;
+  teamName?: string;
+  university?: string;
+  specialization?: string;
+  skills?: string[];
+  github?: string;
+  telegram?: string;
+  company?: string;
+  roleTitle?: string;
+}
+
+export interface AppNotification {
+  id: string;
+  profileId: string;
+  type: 'new_proposal' | 'proposal_accepted' | 'proposal_rejected';
+  title: string;
+  message: string;
+  cardId: string;
+  proposalId: string;
+  createdAt: string;
+  readAt: string | null;
+}
+
 // Предложение (отклик) студенческой команды по ТЗ хакатона
 export interface TeamProposal {
   id: string;

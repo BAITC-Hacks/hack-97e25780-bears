@@ -9,13 +9,12 @@ import {
   StudentProfile,
   BusinessProfile,
   TeamProposal,
-  TeamSquad
+  TeamSquad,
+  UserProfile,
+  ProfileInput,
+  AppNotification,
 } from './types';
-import {
-  INITIAL_STUDENT_PROFILE,
-  INITIAL_BUSINESS_PROFILE,
-  INITIAL_TEAMS
-} from './data/initialData';
+import { INITIAL_TEAMS } from './data/initialData';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { TaskFilters } from './components/TaskFilters';
@@ -25,6 +24,8 @@ import { ApplyModal } from './components/ApplyModal';
 import { TaskConstructorModal } from './components/TaskConstructorModal';
 import { TeamView } from './components/TeamView';
 import { BusinessDashboard } from './components/BusinessDashboard';
+import { ProfileManager } from './components/ProfileManager';
+import { NotificationsPanel } from './components/NotificationsPanel';
 import {
   Layers,
   Sparkles,
@@ -34,17 +35,52 @@ import {
   ArrowRight
 } from 'lucide-react';
 
+const SELECTION_KEY = 'startcard.profile-selection.v1';
+function readSelection(): { role: UserRole; student: string; business: string } {
+  try {
+    const value = JSON.parse(localStorage.getItem(SELECTION_KEY) || '{}');
+    return { role: value.role === 'business' ? 'business' : 'student', student: typeof value.student === 'string' ? value.student : '', business: typeof value.business === 'string' ? value.business : '' };
+  } catch { return { role: 'student', student: '', business: '' }; }
+}
+const EMPTY_STUDENT: StudentProfile = { id: '', name: 'Выберите профиль', teamName: '', avatar: '', university: '', specialization: '', rating: 0, completedTasks: 0, skills: [], github: '', telegram: '' };
+const EMPTY_BUSINESS: BusinessProfile = { id: '', name: 'Выберите профиль', company: '', roleTitle: '', avatar: '', verified: false, activeCardsCount: 0 };
+
 export default function App() {
-  // Role switcher: 'student' or 'business'
-  const [currentRole, setCurrentRole] = useState<UserRole>('student');
+  const [selection, setSelection] = useState(readSelection);
+  const currentRole = selection.role;
+  const [profiles, setProfiles] = useState<UserProfile[]>([]);
+  const [profilesReady, setProfilesReady] = useState(false);
+  const [profileLoadError, setProfileLoadError] = useState('');
+  const [profileReloadVersion, setProfileReloadVersion] = useState(0);
+  const profileRequestGeneration = useRef(0);
+  const studentProfile = profiles.find((profile): profile is StudentProfile & { role: 'student' } => profile.role === 'student' && profile.id === selection.student)
+    || profiles.find((profile): profile is StudentProfile & { role: 'student' } => profile.role === 'student') || EMPTY_STUDENT;
+  const businessProfile = profiles.find((profile): profile is BusinessProfile & { role: 'business' } => profile.role === 'business' && profile.id === selection.business)
+    || profiles.find((profile): profile is BusinessProfile & { role: 'business' } => profile.role === 'business') || EMPTY_BUSINESS;
+  const activeProfile = currentRole === 'student' ? studentProfile : businessProfile;
+  const activeProfileId = activeProfile.id;
+  const activeProfileRef = useRef(activeProfileId);
+  activeProfileRef.current = activeProfileId;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const generation = ++profileRequestGeneration.current;
+    projectApi.profiles(controller.signal).then(({ profiles: next }) => {
+      if (controller.signal.aborted || generation !== profileRequestGeneration.current) return;
+      setProfiles(next); setProfilesReady(true); setProfileLoadError('');
+    }).catch((error) => { if (!controller.signal.aborted && generation === profileRequestGeneration.current) setProfileLoadError(errorMessage(error)); });
+    return () => controller.abort();
+  }, [profileReloadVersion]);
+  useEffect(() => {
+    if (!profilesReady) return;
+    try { localStorage.setItem(SELECTION_KEY, JSON.stringify({ role: currentRole, student: studentProfile.id, business: businessProfile.id })); } catch { /* Profile selection also works when browser storage is disabled. */ }
+  }, [profilesReady, currentRole, studentProfile.id, businessProfile.id]);
 
   // Navigation tab
   const [activeTab, setActiveTab] = useState<string>('cards');
 
   // State collections
   const [cards, setCards] = useState<TaskCard[]>([]);
-  const [studentProfile, setStudentProfile] = useState<StudentProfile>(INITIAL_STUDENT_PROFILE);
-  const [businessProfile, setBusinessProfile] = useState<BusinessProfile>(INITIAL_BUSINESS_PROFILE);
   const [proposals, setProposals] = useState<TeamProposal[]>([]);
   const [teams, setTeams] = useState<TeamSquad[]>(INITIAL_TEAMS);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,31 +89,51 @@ export default function App() {
   const [selectionError, setSelectionError] = useState('');
   const [pendingSelections, setPendingSelections] = useState<string[]>([]);
   const selectionRequests = useRef(new Set<string>());
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [isProfileManagerOpen, setIsProfileManagerOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [stateProfileId, setStateProfileId] = useState('');
+  const requestGeneration = useRef(0);
+  const savedByProfile = useRef(new Map<string, Set<string>>());
 
   useEffect(() => {
+    if (!activeProfileId) return;
     const controller = new AbortController();
-    setIsLoading(true);
-    setLoadError('');
-    projectApi.state(controller.signal)
-      .then((state) => {
+    let pending = false;
+    const load = async (initial = false) => {
+      if (pending) return;
+      pending = true;
+      const generation = ++requestGeneration.current;
+      if (initial && stateProfileId !== activeProfileId) setIsLoading(true);
+      try {
+        const state = await projectApi.state(activeProfileId, controller.signal);
+        if (controller.signal.aborted || generation !== requestGeneration.current || activeProfileRef.current !== activeProfileId) return;
         if (!Array.isArray(state.cards) || !Array.isArray(state.proposals)) {
           throw new Error('Сервер вернул неверный формат каталога.');
         }
         setCards(state.cards.map((card) => ({
           ...card,
+          saved: savedByProfile.current.get(activeProfileId)?.has(card.id) || false,
           hasApplied: state.proposals.some((proposal) =>
             proposal.cardId === card.id && proposal.studentId === studentProfile.id),
         })));
         setProposals(state.proposals);
-      })
-      .catch((error) => {
-        if (!controller.signal.aborted) setLoadError(errorMessage(error));
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setIsLoading(false);
-      });
-    return () => controller.abort();
-  }, [reloadVersion, studentProfile.id]);
+        setNotifications(state.notifications);
+        setStateProfileId(activeProfileId);
+        setLoadError('');
+      } catch (error) {
+        if (!controller.signal.aborted && generation === requestGeneration.current) setLoadError(errorMessage(error));
+      } finally {
+        pending = false;
+        if (!controller.signal.aborted && generation === requestGeneration.current) setIsLoading(false);
+      }
+    };
+    void load(true);
+    const interval = window.setInterval(() => { if (!document.hidden) void load(); }, 10000);
+    const onFocus = () => { void load(); };
+    window.addEventListener('focus', onFocus);
+    return () => { controller.abort(); clearInterval(interval); window.removeEventListener('focus', onFocus); };
+  }, [reloadVersion, activeProfileId]);
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -89,6 +145,7 @@ export default function App() {
   const [selectedCardForApply, setSelectedCardForApply] = useState<TaskCard | null>(null);
   const [selectedCardForDetails, setSelectedCardForDetails] = useState<TaskCard | null>(null);
   const [isConstructorOpen, setIsConstructorOpen] = useState(false);
+  const [focusedProposalId, setFocusedProposalId] = useState<string | null>(null);
 
   // Toast feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -98,8 +155,54 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  const closeWorkModals = () => {
+    setSelectedCardForApply(null); setSelectedCardForDetails(null); setIsConstructorOpen(false);
+    setIsNotificationsOpen(false); setSelectionError(''); setFocusedProposalId(null);
+  };
+  const switchRole = (role: UserRole) => {
+    if (role === currentRole) return;
+    closeWorkModals(); setActiveTab('cards');
+    setSelection((previous) => ({ ...previous, role }));
+  };
+  const selectProfile = (profile: UserProfile) => {
+    closeWorkModals(); setIsProfileManagerOpen(false); setActiveTab('cards');
+    setSelection((previous) => ({ ...previous, role: profile.role, [profile.role]: profile.id }));
+  };
+  const saveProfile = async (input: ProfileInput, id?: string) => {
+    const { profile } = id ? await projectApi.updateProfile(id, input) : await projectApi.createProfile(input);
+    profileRequestGeneration.current += 1;
+    setProfiles((previous) => [...previous.filter((item) => item.id !== profile.id), profile]);
+    setProfilesReady(true); setProfileLoadError(''); selectProfile(profile);
+    showToast(id ? 'Изменения профиля сохранены.' : 'Профиль создан и выбран.');
+  };
+  const openProfiles = () => {
+    setProfileReloadVersion((value) => value + 1); setIsProfileManagerOpen(true);
+  };
+  const refreshState = () => {
+    requestGeneration.current += 1;
+    setReloadVersion((value) => value + 1);
+  };
+  const readAllNotifications = async () => {
+    const profileId = activeProfileId;
+    await projectApi.readAllNotifications(profileId);
+    if (activeProfileRef.current !== profileId) return;
+    setNotifications((previous) => previous.map((item) => ({ ...item, readAt: item.readAt || new Date().toISOString() })));
+    refreshState();
+  };
+  const openNotification = async (notification: AppNotification) => {
+    const profileId = activeProfileId;
+    if (!notification.readAt) await projectApi.readNotification(profileId, notification.id);
+    if (activeProfileRef.current !== profileId) return;
+    setNotifications((previous) => previous.map((item) => item.id === notification.id ? { ...item, readAt: item.readAt || new Date().toISOString() } : item));
+    setIsNotificationsOpen(false); setFocusedProposalId(notification.proposalId);
+    setSearchQuery(''); setSelectedCategory('all'); setSelectedReadinessLevel('all');
+    setActiveTab(currentRole === 'business' ? 'applicants' : 'applied');
+    showToast(notification.message);
+    refreshState();
+  };
+
   const openConstructor = () => {
-    if (isLoading || loadError) {
+    if (!activeProfileId || isLoading || loadError || stateProfileId !== activeProfileId) {
       showToast('Дождитесь загрузки каталога или повторите подключение к серверу.');
       return;
     }
@@ -155,12 +258,14 @@ export default function App() {
 
   // Handlers
   const handleToggleSave = (cardId: string) => {
+    const saved = new Set(savedByProfile.current.get(activeProfileId) || []);
+    if (saved.has(cardId)) saved.delete(cardId); else saved.add(cardId);
+    savedByProfile.current.set(activeProfileId, saved);
+    showToast(saved.has(cardId) ? 'Кейс добавлен в сохраненные' : 'Кейс удален из сохраненных');
     setCards((prev) =>
       prev.map((c) => {
         if (c.id === cardId) {
-          const newSaved = !c.saved;
-          showToast(newSaved ? 'Кейс добавлен в сохраненные' : 'Кейс удален из сохраненных');
-          return { ...c, saved: newSaved };
+          return { ...c, saved: saved.has(cardId) };
         }
         return c;
       })
@@ -181,7 +286,9 @@ export default function App() {
     const targetCard = cards.find((c) => c.id === proposalData.cardId);
     if (!targetCard) throw new Error('Задача не найдена в каталоге. Обновите страницу.');
 
-    const { proposal: newProposal } = await projectApi.submitProposal(proposalData);
+    const profileId = activeProfileId;
+    const { proposal: newProposal } = await projectApi.submitProposal(profileId, proposalData);
+    if (activeProfileRef.current !== profileId) return;
 
     // Mark card as applied
     setCards((prev) =>
@@ -193,12 +300,16 @@ export default function App() {
     );
 
     setProposals((previous) => [newProposal, ...previous]);
+    refreshState();
     showToast(`Предложение команды успешно отправлено на рассмотрение бизнесу!`);
   };
 
   const handlePublishNewCard = async (newCard: TaskCard) => {
-    const { card } = await projectApi.publishCard(newCard);
+    const profileId = activeProfileId;
+    const { card } = await projectApi.publishCard(profileId, { ...newCard, businessId: profileId });
+    if (activeProfileRef.current !== profileId) return;
     setCards((previous) => [card, ...previous]);
+    refreshState();
     showToast(`Задача сохранена на сервере и опубликована с рейтингом ${card.readinessScore} б.!`);
   };
 
@@ -207,12 +318,15 @@ export default function App() {
     selectionRequests.current.add(proposalId);
     setPendingSelections([...selectionRequests.current]);
     setSelectionError('');
+    const profileId = activeProfileId;
     try {
-      const { proposal } = await projectApi.selectProposal(proposalId, action);
+      const { proposal } = await projectApi.selectProposal(profileId, proposalId, action);
+      if (activeProfileRef.current !== profileId) return;
       setProposals((previous) => previous.map((item) => item.id === proposalId ? proposal : item));
+      refreshState();
       showToast(action === 'accept' ? 'Выбор команды сохранён на сервере.' : 'Отклонение предложения сохранено на сервере.');
     } catch (error) {
-      setSelectionError(errorMessage(error));
+      if (activeProfileRef.current === profileId) setSelectionError(errorMessage(error));
     } finally {
       selectionRequests.current.delete(proposalId);
       setPendingSelections([...selectionRequests.current]);
@@ -230,12 +344,15 @@ export default function App() {
 
   const savedCount = cards.filter((c) => c.saved).length;
   const appliedCount = cards.filter((c) => c.hasApplied).length;
+  const currentNotifications = stateProfileId === activeProfileId ? notifications : [];
+  const unreadCount = currentNotifications.filter((item) => !item.readAt).length;
+  const visibleError = profileLoadError || loadError;
 
   return (
     <div className="min-h-screen bg-[#111216] text-[#F3F4F6] flex flex-col selection:bg-amber-500/20 selection:text-amber-200">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-[#1C1E29] border border-amber-500/40 text-amber-200 text-xs font-semibold shadow-2xl animate-fade-in">
+        <div role="status" className="fixed bottom-6 left-4 sm:left-auto right-4 sm:right-6 max-w-lg z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-[#1C1E29] border border-amber-500/40 text-amber-200 text-xs font-semibold shadow-2xl animate-fade-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
           <span>{toastMessage}</span>
         </div>
@@ -244,12 +361,13 @@ export default function App() {
       {/* Global Header */}
       <Header
         currentRole={currentRole}
-        onRoleChange={(role) => {
-          setCurrentRole(role);
-          setActiveTab('cards');
-        }}
+        onRoleChange={switchRole}
         activeCardsCount={cards.length}
         onOpenAiCreator={openConstructor}
+        onOpenProfiles={openProfiles}
+        profileName={activeProfile.name}
+        unreadCount={unreadCount}
+        onOpenNotifications={() => { if (activeProfileId) { setIsNotificationsOpen(true); refreshState(); } else openProfiles(); }}
       />
 
       {/* Desktop Layout Frame (Sidebar + Main Content Canvas) */}
@@ -264,27 +382,32 @@ export default function App() {
           onOpenAiCreator={openConstructor}
           savedCount={savedCount}
           appliedCount={appliedCount}
+          onOpenProfiles={openProfiles}
         />
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+        <main className="flex-1 min-w-0 overflow-y-auto p-3 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto space-y-6">
             <p className="text-xs text-neutral-400 rounded-xl border border-white/[0.08] p-3">
-              Демо без авторизации. Карточки, отклики и выбор общие для всех ролей и хранятся в памяти сервера до его перезапуска. Профили, команды и закладки — демонстрационные.
+              Демо без паролей: любой посетитель может выбрать профиль. Профили, задачи, отклики и уведомления сохраняются на сервере. Команды и закладки — демонстрационные.
             </p>
-            {isLoading && <p role="status" className="text-sm text-amber-300">Загружаем каталог с сервера…</p>}
-            {loadError && (
+            <nav aria-label="Навигация на мобильном" className="md:hidden flex gap-2 overflow-x-auto pb-1">
+              {(currentRole === 'student' ? [['cards', 'Карты'], ['applied', 'Мои отклики'], ['saved', 'Сохранённые'], ['team', 'Команда']] : [['cards', 'Мои карты'], ['applicants', 'Отклики студентов']]).map(([id, title]) => <button key={id} onClick={() => setActiveTab(id)} className={`px-3 py-2 rounded-xl text-xs whitespace-nowrap border ${activeTab === id ? 'text-amber-300 border-amber-500/30 bg-amber-500/10' : 'text-neutral-400 border-white/10'}`}>{title}</button>)}
+            </nav>
+            {(isLoading || !profilesReady || stateProfileId !== activeProfileId) && !visibleError && <p role="status" className="text-sm text-amber-300">Загружаем данные профиля…</p>}
+            {visibleError && (
               <div role="alert" className="p-4 rounded-xl border border-red-500/30 text-red-300 text-sm">
-                {loadError}
-                <button onClick={() => setReloadVersion((value) => value + 1)} className="ml-3 underline">Повторить загрузку</button>
+                {visibleError}
+                <button onClick={() => { setProfileReloadVersion((value) => value + 1); refreshState(); }} className="ml-3 underline">Повторить загрузку</button>
               </div>
             )}
             {selectionError && <p role="alert" className="text-sm text-red-300">{selectionError}</p>}
             {/* Business View */}
-            {!isLoading && !loadError && (currentRole === 'business' ? (
+            {profilesReady && !isLoading && !visibleError && stateProfileId === activeProfileId && (currentRole === 'business' ? (
               <BusinessDashboard
+                key={activeProfileId}
                 businessProfile={businessProfile}
-                cards={cards}
+                cards={cards.filter((card) => card.businessId === businessProfile.id)}
                 proposals={proposals}
                 activeTab={activeTab}
                 onOpenConstructor={openConstructor}
@@ -292,6 +415,7 @@ export default function App() {
                 onRejectProposal={(id) => { void handleSelection(id, 'reject'); }}
                 pendingSelections={pendingSelections}
                 onViewCardDetails={handleViewDetails}
+                focusedProposalId={focusedProposalId}
               />
             ) : (
               /* Student View */
@@ -328,7 +452,7 @@ export default function App() {
 
                       {/* Quick switch to Business banner if needed */}
                       <button
-                        onClick={() => setCurrentRole('business')}
+                        onClick={() => switchRole('business')}
                         className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-xs text-neutral-300 border border-white/[0.06] transition-colors"
                       >
                         <Briefcase className="w-3.5 h-3.5 text-amber-400" />
@@ -355,13 +479,15 @@ export default function App() {
                     {filteredAndSortedCards.length > 0 ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         {filteredAndSortedCards.map((card) => (
+                          <div key={card.id} className="space-y-2">
+                          {activeTab === 'applied' && <p className="text-xs text-amber-300 px-1">Статус отклика: {proposals.find((proposal) => proposal.cardId === card.id)?.status === 'accepted' ? 'Команда выбрана бизнесом' : proposals.find((proposal) => proposal.cardId === card.id)?.status === 'rejected' ? 'Предложение отклонено' : 'Ожидает решения бизнеса'}</p>}
                           <TaskCardItem
-                            key={card.id}
                             card={card}
                             onApply={handleApplyClick}
                             onToggleSave={handleToggleSave}
                             onViewDetails={handleViewDetails}
                           />
+                          </div>
                         ))}
                       </div>
                     ) : (
@@ -395,8 +521,11 @@ export default function App() {
       </div>
 
       {/* Interactive Modals */}
+      {isProfileManagerOpen && <ProfileManager role={currentRole} profiles={profiles.filter((profile) => profile.role === currentRole)} currentId={activeProfileId} onSelect={selectProfile} onSave={saveProfile} onClose={() => setIsProfileManagerOpen(false)} />}
+      {isNotificationsOpen && <NotificationsPanel notifications={currentNotifications} profileName={activeProfile.name} loadError={visibleError} onClose={() => setIsNotificationsOpen(false)} onOpen={openNotification} onReadAll={readAllNotifications} onRefresh={refreshState} />}
       {/* 1. Task Details Modal */}
       <TaskDetailsModal
+        studentActions={currentRole === 'student'}
         card={cards.find((card) => card.id === selectedCardForDetails?.id) || selectedCardForDetails}
         isOpen={!!selectedCardForDetails}
         onClose={() => setSelectedCardForDetails(null)}
@@ -409,7 +538,7 @@ export default function App() {
 
       {/* 2. Team Proposal Apply Modal */}
       {selectedCardForApply && <ApplyModal
-        key={selectedCardForApply.id}
+        key={`${studentProfile.id}:${selectedCardForApply.id}`}
         card={selectedCardForApply}
         student={studentProfile}
         isOpen={!!selectedCardForApply}

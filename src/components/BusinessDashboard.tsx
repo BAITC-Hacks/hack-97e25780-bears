@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { ProfileAvatar } from './ProfileAvatar';
 import { TaskCard, TeamProposal, BusinessProfile } from '../types';
 import { TaskCardItem } from './TaskCardItem';
 import {
@@ -29,6 +30,7 @@ interface BusinessDashboardProps {
   onRejectProposal: (proposalId: string) => void;
   pendingSelections?: string[];
   onViewCardDetails: (card: TaskCard) => void;
+  focusedProposalId?: string | null;
 }
 
 export const BusinessDashboard: React.FC<BusinessDashboardProps> = ({
@@ -41,8 +43,17 @@ export const BusinessDashboard: React.FC<BusinessDashboardProps> = ({
   onRejectProposal,
   pendingSelections = [],
   onViewCardDetails,
+  focusedProposalId,
 }) => {
   const [selectedCardFilter, setSelectedCardFilter] = useState<string>('all');
+  useEffect(() => {
+    if (focusedProposalId) setSelectedCardFilter('all');
+  }, [focusedProposalId]);
+  useEffect(() => {
+    if (focusedProposalId && activeTab === 'applicants' && selectedCardFilter === 'all') {
+      document.getElementById(`proposal-${focusedProposalId}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }, [focusedProposalId, activeTab, selectedCardFilter]);
 
   const filteredProposals =
     selectedCardFilter === 'all'
@@ -169,18 +180,15 @@ export const BusinessDashboard: React.FC<BusinessDashboardProps> = ({
             {filteredProposals.map((prop) => (
               <div
                 key={prop.id}
-                className="p-5 rounded-2xl bg-[#181A24] border border-white/[0.08] hover:border-amber-400/30 transition-all shadow-md space-y-3"
+                id={`proposal-${prop.id}`}
+                className={`p-5 rounded-2xl bg-[#181A24] border hover:border-amber-400/30 transition-all shadow-md space-y-3 ${focusedProposalId === prop.id ? 'border-amber-400/60' : 'border-white/[0.08]'}`}
               >
                 {/* Header row */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.06] pb-3">
                   <div className="flex items-center gap-3">
-                    <img
-                      src={prop.avatar}
-                      alt={prop.teamName}
-                      className="w-10 h-10 rounded-full object-cover ring-2 ring-orange-500/40"
-                    />
+                    <ProfileAvatar name={prop.leaderName} />
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-extrabold text-white">
                           Команда «{prop.teamName}»
                         </span>
@@ -319,6 +327,7 @@ export const BusinessDashboard: React.FC<BusinessDashboardProps> = ({
             {cards.map((card) => (
               <TaskCardItem
                 key={card.id}
+                studentActions={false}
                 card={card}
                 onApply={() => {}}
                 onToggleSave={() => {}}
