@@ -1,143 +1,67 @@
-import React, { useState } from 'react';
-import { StudentProfile } from '../types';
-import { X, User, Save, Sparkles } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { ArrowLeft, Save } from 'lucide-react';
+import type { ProfileInput, UserProfile, UserRole } from '../types';
+import { errorMessage } from '../api';
 
-interface EditProfileModalProps {
-  profile: StudentProfile;
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (updated: StudentProfile) => void;
-}
-
-export const EditProfileModal: React.FC<EditProfileModalProps> = ({
-  profile,
-  isOpen,
-  onClose,
-  onSave,
-}) => {
-  if (!isOpen) return null;
-
-  const [name, setName] = useState(profile.name);
-  const [id, setId] = useState(profile.id);
-  const [university, setUniversity] = useState(profile.university);
-  const [specialization, setSpecialization] = useState(profile.specialization);
-  const [github, setGithub] = useState(profile.github);
-  const [telegram, setTelegram] = useState(profile.telegram);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave({
-      ...profile,
-      name,
-      id,
-      university,
-      specialization,
-      github,
-      telegram,
-    });
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="relative w-full max-w-md bg-[#161720] border border-white/[0.1] rounded-3xl shadow-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-white/[0.08] bg-[#1A1C26] flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center">
-              <User className="w-4 h-4" />
-            </div>
-            <h3 className="text-base font-bold text-white">Профиль студента</h3>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg text-neutral-400 hover:text-white"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-xs font-mono text-neutral-400 uppercase mb-1">
-              ФИО Студента
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="w-full bg-[#1E202B] text-sm text-white px-3.5 py-2.5 rounded-xl border border-white/[0.08] focus:border-amber-400 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-mono text-neutral-400 uppercase mb-1">
-              Студенческий ID (номер билета)
-            </label>
-            <input
-              type="text"
-              value={id}
-              onChange={(e) => setId(e.target.value)}
-              required
-              className="w-full bg-[#1E202B] text-sm text-white px-3.5 py-2.5 rounded-xl border border-white/[0.08] focus:border-amber-400 focus:outline-none font-mono"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-mono text-neutral-400 uppercase mb-1">
-              ВУЗ
-            </label>
-            <input
-              type="text"
-              value={university}
-              onChange={(e) => setUniversity(e.target.value)}
-              className="w-full bg-[#1E202B] text-sm text-white px-3.5 py-2.5 rounded-xl border border-white/[0.08] focus:border-amber-400 focus:outline-none"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-mono text-neutral-400 uppercase mb-1">
-                GitHub
-              </label>
-              <input
-                type="text"
-                value={github}
-                onChange={(e) => setGithub(e.target.value)}
-                className="w-full bg-[#1E202B] text-xs text-white px-3 py-2 rounded-xl border border-white/[0.08] focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-mono text-neutral-400 uppercase mb-1">
-                Telegram
-              </label>
-              <input
-                type="text"
-                value={telegram}
-                onChange={(e) => setTelegram(e.target.value)}
-                className="w-full bg-[#1E202B] text-xs text-white px-3 py-2 rounded-xl border border-white/[0.08] focus:outline-none"
-              />
-            </div>
-          </div>
-
-          <div className="pt-3 border-t border-white/[0.08] flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-neutral-400 hover:text-white"
-            >
-              Отмена
-            </button>
-            <button
-              type="submit"
-              className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-neutral-950 font-bold text-xs shadow-md shadow-orange-500/20 hover:brightness-110"
-            >
-              <Save className="w-3.5 h-3.5" />
-              <span>Сохранить</span>
-            </button>
-          </div>
-        </form>
-      </div>
+export function EditProfileModal({ profile, role, onBack, onSave, onBusyChange }: {
+  profile?: UserProfile; role: UserRole; onBack: () => void;
+  onSave: (input: ProfileInput, id?: string) => Promise<void>;
+  onBusyChange: (busy: boolean) => void;
+}) {
+  const student = profile?.role === 'student' ? profile : undefined;
+  const business = profile?.role === 'business' ? profile : undefined;
+  const [values, setValues] = useState({
+    name: profile?.name || '', teamName: student?.teamName || '', university: student?.university || '',
+    specialization: student?.specialization || '', skills: student?.skills.join(', ') || '', github: student?.github || '',
+    telegram: student?.telegram || '', company: business?.company || '', roleTitle: business?.roleTitle || '',
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const pending = useRef(false);
+  const set = (field: keyof typeof values, value: string) => setValues((previous) => ({ ...previous, [field]: value }));
+  const field = (name: keyof typeof values, label: string, required = false, placeholder = '', maxLength = 200) => (
+    <div>
+      <label htmlFor={`profile-${name}`} className="block text-xs font-medium text-neutral-300 mb-1.5">{label}{required ? ' *' : ''}</label>
+      <input id={`profile-${name}`} name={name} autoFocus={name === 'name'} value={values[name]} onChange={(event) => set(name, event.target.value)} required={required} maxLength={maxLength} type={name === 'github' ? 'url' : 'text'} placeholder={placeholder} disabled={busy}
+        className="w-full bg-[#1E202B] text-sm text-white px-3.5 py-2.5 rounded-xl border border-white/10 focus:border-amber-400 focus:outline-none disabled:opacity-60" />
     </div>
   );
-};
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (pending.current) return;
+    if (!values.name.trim() || !(role === 'student' ? values.teamName : values.company).trim()) {
+      setError('Заполните обязательные поля. Одних пробелов недостаточно.'); return;
+    }
+    pending.current = true; setBusy(true); onBusyChange(true); setError('');
+    const input: ProfileInput = {
+      name: values.name.trim(),
+      ...(profile ? {} : { role }),
+      ...(role === 'student' ? {
+        teamName: values.teamName.trim(), university: values.university.trim(), specialization: values.specialization.trim(),
+        skills: values.skills.split(',').map((value) => value.trim()).filter(Boolean), github: values.github.trim(), telegram: values.telegram.trim(),
+      } : { company: values.company.trim(), roleTitle: values.roleTitle.trim() }),
+    };
+    try { await onSave(input, profile?.id); }
+    catch (cause) { setError(errorMessage(cause)); }
+    finally { pending.current = false; setBusy(false); onBusyChange(false); }
+  };
+  return <form onSubmit={submit} className="p-5 space-y-4">
+    <button type="button" onClick={onBack} disabled={busy} className="inline-flex items-center gap-1 text-xs text-amber-300 hover:text-white disabled:opacity-40"><ArrowLeft className="w-4 h-4" />К списку профилей</button>
+    <div><h3 className="text-white font-semibold">{profile ? 'Редактирование' : 'Новый профиль'} · {role === 'student' ? 'Студент' : 'Бизнес'}</h3>
+      {profile && <p className="text-xs text-neutral-500 mt-1 break-all">ID: {profile.id} · назначен сервером</p>}
+    </div>
+    {field('name', role === 'student' ? 'Имя студента' : 'Имя представителя', true)}
+    {role === 'student' ? <>
+      {field('teamName', 'Название команды', true)}
+      {field('university', 'Учебное заведение')}
+      {field('specialization', 'Специализация')}
+      {field('skills', 'Навыки через запятую', false, 'React, Python, дизайн', 500)}
+      <div className="grid sm:grid-cols-2 gap-4">{field('github', 'Ссылка на GitHub', false, 'https://github.com/username', 500)}{field('telegram', 'Telegram', false, '@username')}</div>
+    </> : <>{field('company', 'Компания', true)}{field('roleTitle', 'Должность')}</>}
+    {error && <p role="alert" className="text-sm text-red-300 rounded-xl p-3 bg-red-500/10 border border-red-500/20">{error}</p>}
+    <div className="pt-3 border-t border-white/10 flex justify-end gap-3">
+      <button type="button" onClick={onBack} disabled={busy} className="px-4 py-2 text-sm text-neutral-300 disabled:opacity-40">Отмена</button>
+      <button type="submit" disabled={busy} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-400 text-neutral-950 font-bold text-sm hover:bg-amber-300 disabled:opacity-50"><Save className="w-4 h-4" />{busy ? 'Сохраняем…' : profile ? 'Сохранить изменения' : 'Создать профиль'}</button>
+    </div>
+  </form>;
+}

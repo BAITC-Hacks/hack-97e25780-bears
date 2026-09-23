@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ProfileAvatar } from './ProfileAvatar';
 import { UserRole, StudentProfile, BusinessProfile } from '../types';
 import {
   Layers,
@@ -22,6 +23,7 @@ interface SidebarProps {
   onOpenAiCreator?: () => void;
   savedCount: number;
   appliedCount: number;
+  onOpenProfiles: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -33,20 +35,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenAiCreator,
   savedCount,
   appliedCount,
+  onOpenProfiles,
 }) => {
   const [collapsed, setCollapsed] = useState(false);
-  const [copiedId, setCopiedId] = useState(false);
-
-  const handleCopyId = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    navigator.clipboard.writeText(id);
-    setCopiedId(true);
-    setTimeout(() => setCopiedId(false), 2000);
-  };
+  const profile = currentRole === 'student' ? studentProfile : businessProfile;
 
   return (
     <aside
-      className={`h-[calc(100vh-4rem)] bg-[#13141A] border-r border-white/[0.08] flex flex-col justify-between transition-all duration-300 select-none z-20 flex-shrink-0 ${
+      className={`h-[calc(100vh-4rem)] bg-[#13141A] border-r border-white/[0.08] hidden md:flex flex-col justify-between transition-all duration-300 select-none z-20 flex-shrink-0 ${
         collapsed ? 'w-20' : 'w-64'
       }`}
     >
@@ -287,93 +283,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      {/* Bottom Left Profile Block (Exact requirement: non-editable view-only display) */}
-      {/* "Убери возможность редактировать профиль. Нам просто нужно показать что он будет, но проваливаться и редактировать пока не надо." */}
       <div className="p-3 border-t border-white/[0.08] bg-[#111216]">
-        {currentRole === 'student' ? (
-          <div
-            className="flex items-center gap-3 p-2.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] select-none"
-          >
-            {/* Student Avatar */}
-            <div className="relative flex-shrink-0">
-              <img
-                src={studentProfile.avatar}
-                alt={studentProfile.name}
-                className="w-10 h-10 rounded-full object-cover ring-2 ring-orange-500/40 shadow-md"
-              />
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-[#111216]" />
-            </div>
-
-            {!collapsed && (
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-semibold text-white truncate">
-                    {studentProfile.name}
-                  </div>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] text-neutral-400 font-mono">
-                    Студент
-                  </span>
-                </div>
-
-                {/* ID with copy button */}
-                <div
-                  onClick={(e) => handleCopyId(studentProfile.id, e)}
-                  className="flex items-center gap-1.5 text-[11px] text-neutral-400 font-mono mt-0.5 hover:text-amber-400 transition-colors cursor-pointer"
-                  title="Нажмите, чтобы скопировать ID"
-                >
-                  <span className="text-neutral-500">ID:</span>
-                  <span className="text-orange-300/90 font-bold">[{studentProfile.id}]</span>
-                  {copiedId ? (
-                    <Check className="w-3 h-3 text-emerald-400" />
-                  ) : (
-                    <Copy className="w-3 h-3 text-neutral-500 hover:text-neutral-300" />
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          /* Business Representative Profile */
-          <div className="flex items-center gap-3 p-2.5 rounded-2xl bg-amber-500/[0.04] border border-amber-500/20 select-none">
-            <div className="relative flex-shrink-0">
-              <img
-                src={businessProfile.avatar}
-                alt={businessProfile.name}
-                className="w-10 h-10 rounded-full object-cover ring-2 ring-amber-400/50 shadow-md"
-              />
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-[#111216]" />
-            </div>
-
-            {!collapsed && (
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-semibold text-white truncate">
-                    {businessProfile.name}
-                  </div>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-300 font-mono">
-                    Бизнес
-                  </span>
-                </div>
-                <div className="text-[10px] text-amber-300/80 truncate">
-                  {businessProfile.company}
-                </div>
-                <div
-                  onClick={(e) => handleCopyId(businessProfile.id, e)}
-                  className="flex items-center gap-1.5 text-[11px] text-neutral-400 font-mono mt-0.5 hover:text-amber-400 cursor-pointer"
-                  title="Скопировать ID бизнеса"
-                >
-                  <span className="text-neutral-500">ID:</span>
-                  <span className="text-amber-300 font-bold">[{businessProfile.id}]</span>
-                  {copiedId ? (
-                    <Check className="w-3 h-3 text-emerald-400" />
-                  ) : (
-                    <Copy className="w-3 h-3 text-neutral-500" />
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        <button onClick={onOpenProfiles} aria-label={`Профили: ${profile.name}`} title="Создать, выбрать или редактировать профиль" className="flex items-center gap-3 w-full p-2.5 text-left rounded-2xl bg-white/[0.03] border border-amber-500/20 hover:border-amber-400/50 hover:bg-amber-500/5 transition-colors">
+          <ProfileAvatar name={profile.name} />
+          {!collapsed && <span className="flex-1 min-w-0">
+            <span className="block text-xs font-semibold text-white truncate">{profile.name}</span>
+            <span className="block text-[10px] text-neutral-400 truncate">{currentRole === 'business' ? businessProfile.company : studentProfile.teamName}</span>
+            <span className="block text-[10px] text-amber-300 mt-1">Выбрать / изменить профиль</span>
+          </span>}
+        </button>
       </div>
     </aside>
   );
