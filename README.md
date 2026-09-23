@@ -1,4 +1,4 @@
-# Challenge Hub · StartCard.ai
+# StartCard · Challenge Hub
 
 От краткой бизнес-задачи к понятному студенческому проекту и ручному выбору команды.
 
@@ -180,7 +180,7 @@ Frontend: React, TypeScript, Vite, Tailwind CSS, lucide-react. Backend: Node.js,
 | Участник 2 — технический лидер | Backend, хранилище, API, AI-сервисы, рейтинг и тесты |
 | Участник 3 — frontend / UX / test | React-интерфейс StartCard.ai, конструктор, каталог, формы отклика и кабинет бизнеса |
 
-Объединены ветки `feature/member-1-product`, `feature/member-2-backend`, `feature/member-3-frontend` с сохранением истории через merge. Исходные версии интеграции: `83d9f88`, `1e939ec`, `432329c` соответственно.
+Объединены ветки `feature/member-1-product`, `feature/member-2-backend`, `feature/member-3-frontend` с сохранением истории через merge. Исходные версии интеграции: `83d9f88`, `1e939ec`, `432329c` соответственно. Дополнительно включён продуктовый commit `22a60b6` с названием StartCard.
 
 Использованные AI-инструменты: Google AI Studio для исходного frontend, Codex для интеграции, документации и проверки; в runtime предусмотрены Gemini и OpenAI SDK. UI использует Tailwind CSS и иконки lucide-react, исходные изображения профилей загружаются из внешних URL, заданных участником. Архив HackAlem AI и сообщения организаторов использовались как контекст; они не заменяют отсутствующее полное ТЗ.
 
