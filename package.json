@@ -1,12 +1,17 @@
 {
   "name": "hack-97e25780-bears",
   "version": "1.0.0",
-  "description": "HackAlem AI MVP backend for gamified practical task recommendation",
+  "private": true,
+  "description": "Challenge Hub backend for business tasks and student team proposals",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "check": "npm test"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
