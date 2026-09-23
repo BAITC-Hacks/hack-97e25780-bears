@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Challenge Hub — конструктор задачи</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="Challenge Hub">Challenge Hub</a>
+      <div class="role-switch" aria-label="Режим демо">
+        <button class="role active" type="button" data-role="business">Бизнес</button>
+        <button class="role" type="button" data-role="team">Команда</button>
+      </div>
+    </header>
+
+    <main id="top" class="page">
+      <section id="business-view">
+        <div class="intro">
+          <p class="eyebrow">Конструктор задачи</p>
+          <h1>Превратите черновик в понятную задачу для команды</h1>
+          <p>Сначала опишите проблему своими словами. Мы зададим только недостающие вопросы, а вы проверите карточку перед публикацией.</p>
+        </div>
+
+        <div id="mode-note" class="mode-note" role="status">
+          <span class="status-dot"></span>
+          <span><strong>Демонстрационный режим.</strong> Вопросы берутся из согласованного fallback-набора: API Участника&nbsp;2 пока не соответствует контракту конструктора.</span>
+        </div>
+
+        <section class="panel draft-panel" aria-labelledby="draft-heading">
+          <div class="section-heading">
+            <div><p class="step">Шаг 1</p><h2 id="draft-heading">Черновик</h2></div>
+            <span id="draft-count" class="counter">0 символов</span>
+          </div>
+          <label for="draft">Опишите задачу, проблему или потребность</label>
+          <textarea id="draft" rows="5" maxlength="2000" placeholder="Например: Нужен сервис, который поможет сократить очереди в студенческой столовой"></textarea>
+          <p id="draft-error" class="field-error" hidden>Добавьте хотя бы несколько слов о задаче.</p>
+          <div class="actions">
+            <button id="questions-button" class="primary" type="button">Получить вопросы</button>
+            <span id="questions-loading" class="loading" hidden>Подбираем вопросы…</span>
+          </div>
+          <div id="request-error" class="request-error" role="alert" hidden>
+            <span>Не удалось получить вопросы. Черновик сохранён — попробуйте ещё раз.</span>
+            <button id="retry-button" class="link-button" type="button">Повторить</button>
+          </div>
+        </section>
+
+        <section id="questions-section" class="panel" aria-labelledby="questions-heading" hidden>
+          <div class="section-heading"><div><p class="step">Шаг 2</p><h2 id="questions-heading">Уточните детали</h2></div><span class="pill">Только ваши ответы</span></div>
+          <p class="muted">Ответы попадут только в соответствующие поля карточки. Ничего не дополняем за вас.</p>
+          <div id="questions-list" class="questions"></div>
+          <button id="to-card-button" class="secondary" type="button">Перейти к карточке</button>
+        </section>
+
+        <section id="card-section" class="panel" aria-labelledby="card-heading" hidden>
+          <div class="section-heading"><div><p class="step">Шаг 3</p><h2 id="card-heading">Карточка задачи</h2></div><span id="card-state" class="pill">Черновик</span></div>
+          <p class="muted">Проверьте и отредактируйте все поля. Публикация станет доступна после подтверждения.</p>
+          <form id="card-form" class="card-form" novalidate>
+            <label>Название задачи<input name="title" required placeholder="Например: Прогноз очередей в столовой кампуса" /></label>
+            <label>Отрасль<input name="industry" placeholder="Например: Общественное питание" /></label>
+            <label class="wide">Контекст: текущая ситуация и проблема<textarea name="context" rows="3" placeholder="Что происходит сейчас?"></textarea></label>
+            <label class="wide">Потребность: что требуется изменить<textarea name="need" rows="3" placeholder="Какое изменение требуется?"></textarea></label>
+            <label>Пользователи<textarea name="users" rows="3" placeholder="Кто и в какой ситуации будет пользоваться результатом?"></textarea></label>
+            <label>Данные и материалы<textarea name="data" rows="3" placeholder="Какие данные, материалы и в каком формате доступны?"></textarea></label>
+            <label>Ограничения<textarea name="constraints" rows="3" placeholder="Сроки, технологии, доступы"></textarea></label>
+            <label>Ожидаемый результат<textarea name="expectedResult" rows="3" placeholder="Что команда должна передать?"></textarea></label>
+            <label>Критерии успеха<textarea name="successCriteria" rows="3" placeholder="Добавьте измеримое значение: срок, число, процент"></textarea></label>
+            <label>Контакт<input name="contact" type="text" placeholder="email@example.kz или телефон" /></label>
+            <label>Формат взаимодействия<textarea name="interactionFormat" rows="3" placeholder="Как и как часто консультироваться с бизнесом?"></textarea></label>
+          </form>
+          <p id="confirmation-error" class="field-error" hidden></p>
+          <div class="actions">
+            <button id="confirm-button" class="primary" type="button">Подтвердить карточку</button>
+            <button id="edit-button" class="secondary" type="button" hidden>Редактировать карточку</button>
+          </div>
+        </section>
+
+        <section id="rating-section" class="panel rating-panel" aria-labelledby="rating-heading" hidden>
+          <div class="section-heading"><div><p class="step">Шаг 4</p><h2 id="rating-heading">Готовность задачи</h2></div><span id="rating-level" class="level">Черновик</span></div>
+          <div class="score-row"><strong id="score">0</strong><span>/ 100</span><p id="score-description">Заполните карточку и подтвердите её, чтобы зафиксировать рейтинг.</p></div>
+          <div id="breakdown" class="breakdown" aria-label="Разбивка рейтинга"></div>
+          <div class="tips"><h3>Что улучшить</h3><ul id="suggestions"></ul></div>
+          <div class="actions"><button id="publish-button" class="primary" type="button" disabled>Опубликовать в каталоге</button><span id="publish-status" class="muted"></span></div>
+        </section>
+      </section>
+
+      <section id="team-view" class="empty-state" hidden>
+        <p class="eyebrow">Режим команды</p>
+        <h1>Каталог появится следующим шагом</h1>
+        <p>Сейчас готов и проверяется путь бизнеса: черновик → вопросы → карточка → рейтинг. Переключатель работает без регистрации и не является авторизацией.</p>
+        <button class="secondary" type="button" data-role="business">Вернуться к конструктору</button>
+      </section>
+    </main>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
