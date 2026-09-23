@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { errorMessage, requestJson } from '../api';
 import { TaskCard, TaskCategory, ReadinessScoreBreakdown } from '../types';
 import { calculateCardReadiness } from '../utils/scoreCalculator';
 import {
@@ -23,8 +24,27 @@ import {
 interface TaskConstructorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onPublishCard: (newCard: TaskCard) => void;
+  onPublishCard: (newCard: TaskCard) => Promise<void>;
   defaultCompany?: string;
+}
+
+interface AiResult {
+  success: boolean;
+  questions?: { id: string; category: string; question: string; placeholder: string }[];
+  card?: Partial<TaskCard>;
+  source?: string;
+  fallbackReason?: string | null;
+}
+
+function describeAiSource(result: AiResult): string {
+  if (result.source === 'gemini' || result.source === 'ai') return 'Ответ получен от AI-сервиса. Проверьте сведения перед публикацией.';
+  const reasons: Record<string, string> = {
+    missing_api_key: 'ключ AI не настроен',
+    timeout: 'AI не ответил вовремя',
+    invalid_response: 'AI вернул неподходящий ответ',
+    provider_error: 'AI-сервис недоступен',
+  };
+  return `Резервный режим: ${reasons[result.fallbackReason || ''] || 'ответ подготовлен без AI'}. Используются вопросы и перенос ваших ответов по правилам.`;
 }
 
 export const TaskConstructorModal: React.FC<TaskConstructorModalProps> = ({
@@ -61,9 +81,9 @@ export const TaskConstructorModal: React.FC<TaskConstructorModalProps> = ({
     constraints: '',
     targetUsers: '',
     businessContact: '',
-    reward: '80 000 ₽ + Fast-track',
+    reward: '',
     deadlineDays: 14,
-    tags: ['Python', 'Docker', 'MVP'],
+    tags: [],
   });
 
   // Live Calculated Rating
@@ -72,6 +92,11 @@ export const TaskConstructorModal: React.FC<TaskConstructorModalProps> = ({
   );
   const [showBreakdown, setShowBreakdown] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
+  const [aiStatus, setAiStatus] = useState('');
+  const [cardIsAi, setCardIsAi] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const requestInFlight = useRef(false);
+  const isBusy = isLoadingQuestions || isBuildingCard || isPublishing;
 
   // Re-calculate rating whenever editableCard changes
   useEffect(() => {
@@ -99,58 +124,31 @@ export const TaskConstructorModal: React.FC<TaskConstructorModalProps> = ({
 
   // Step 1 -> Step 2: Request AI Clarifying Questions
   const handleAnalyzeDraft = async () => {
+    if (requestInFlight.current) return;
     if (!draft.trim() || draft.trim().length < 5) {
       setErrorMsg('Пожалуйста, введите хотя бы краткое описание черновика задачи.');
       return;
     }
 
     setErrorMsg('');
+    requestInFlight.current = true;
     setIsLoadingQuestions(true);
 
     try {
-      const res = await fetch('/api/ai/clarify-task', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ draft, companyName: company }),
+      const data = await requestJson<AiResult>('/api/ai/clarify-task', {
+        draft, companyName: company,
       });
-
-      const data = await res.json();
-      if (data.success && data.questions?.length >= 3) {
+      if (data.success && data.questions && data.questions.length >= 3) {
         setQuestions(data.questions);
+        setAiStatus(describeAiSource(data));
         setStep(2);
       } else {
-        throw new Error(data.error || 'Не удалось сгенерировать вопросы');
+        throw new Error('Не удалось получить уточняющие вопросы.');
       }
-    } catch (e: any) {
-      // Reliable fallback matching exact hackathon criteria
-      setQuestions([
-        {
-          id: 'q1',
-          category: 'dataAndMaterials',
-          question: '1. Какие данные, примеры или API вы предоставите команде для работы?',
-          placeholder: 'Например: Тестовый набор данных 10 000 записей в JSON, Swagger-спецификация API.',
-        },
-        {
-          id: 'q2',
-          category: 'successCriteria',
-          question: '2. Каковы измеримые критерии приемки решения (метрики качества, тесты)?',
-          placeholder: 'Например: Точность классификации > 85%, время ответа < 50мс, 90% покрытие unit-тестами.',
-        },
-        {
-          id: 'q3',
-          category: 'constraints',
-          question: '3. Какие ограничения по срокам, стеку технологий и архитектуре?',
-          placeholder: 'Например: Срок 14 дней. Python / FastAPI / Docker. Чистый код по PEP8.',
-        },
-        {
-          id: 'q4',
-          category: 'businessContact',
-          question: '4. Кто контактное лицо бизнеса и в каком формате будет проходить обратная связь?',
-          placeholder: 'Например: Куратор проекта Александр (@tech_lead), еженедельные 20-минутные синки.',
-        },
-      ]);
-      setStep(2);
+    } catch (error) {
+      setErrorMsg(errorMessage(error));
     } finally {
+      requestInFlight.current = false;
       setIsLoadingQuestions(false);
     }
   };
@@ -161,61 +159,52 @@ export const TaskConstructorModal: React.FC<TaskConstructorModalProps> = ({
       q1: 'Тестовый датасет из 5 000 анонимизированных записей в JSON и документация по API платформы.',
       q2: 'Точность предсказания F1 > 0.88, задержка ответа сервиса менее 40 мс, прохождение нагрузочного теста.',
       q3: 'Срок выполнения 14 дней. Обязателен Docker-контейнер и развертывание в облачном окружении.',
-      q4: 'Архитектор команды Михаил (@mikhail_arch), созвоны каждый вторник в Google Meet.',
+      q4: 'Демо-куратор demo@example.com, созвоны каждый вторник.',
+      q5: 'Операторы компании, обрабатывающие поступающие заявки каждый рабочий день.',
+      q6: 'Рабочий веб-прототип, исходный код, тесты и инструкция по запуску.',
     });
   };
 
   // Step 2 -> Step 3: Build Structured Card
   const handleBuildCard = async () => {
+    if (requestInFlight.current) return;
+    requestInFlight.current = true;
+    setErrorMsg('');
     setIsBuildingCard(true);
     try {
-      const res = await fetch('/api/ai/build-card', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ draft, answers, companyName: company }),
+      const data = await requestJson<AiResult>('/api/ai/build-card', {
+        draft, answers, companyName: company,
       });
-
-      const data = await res.json();
       if (data.success && data.card) {
         setEditableCard({
           ...data.card,
           company,
           brandColor,
           category,
-          deadlineDays: 14,
-          reward: data.card.reward || '85 000 ₽ + Оффер',
-          tags: data.card.tags || ['Python', 'FastAPI', 'Docker', 'AI'],
+          deadlineDays: data.card.deadlineDays || 14,
+          reward: data.card.reward || '',
+          tags: data.card.tags || [],
         });
+        setAiStatus(describeAiSource(data));
+        setCardIsAi(data.source === 'gemini' || data.source === 'ai');
+        setStep(3);
       } else {
-        throw new Error();
+        throw new Error('Сервер не вернул карточку задачи.');
       }
-    } catch {
-      // Fallback construction
-      setEditableCard({
-        title: draft.slice(0, 40) + '...',
-        shortSummary: draft,
-        context: `Потребность компании ${company}: ${draft}`,
-        dataAndMaterials: answers.q1 || 'Тестовый датасет и документация API',
-        expectedResult: 'Рабочий репозиторий с кодом, развернутый прототип и инструкция по запуску',
-        successCriteria: answers.q2 || 'Прохождение приемочных тестов и валидация на контрольной выборке',
-        constraints: answers.q3 || 'Срок: 14 дней. Стек: Python / Docker',
-        targetUsers: 'Сотрудники и клиенты компании',
-        businessContact: answers.q4 || 'Куратор проекта (@tech_lead)',
-        company,
-        brandColor,
-        category,
-        deadlineDays: 14,
-        reward: '80 000 ₽ + Оффер',
-        tags: ['Python', 'MVP', 'Docker'],
-      });
+    } catch (error) {
+      setErrorMsg(errorMessage(error));
     } finally {
+      requestInFlight.current = false;
       setIsBuildingCard(false);
-      setStep(3);
     }
   };
 
   // Step 3 -> Publish to general catalog
-  const handleFinalPublish = () => {
+  const handleFinalPublish = async () => {
+    if (requestInFlight.current) return;
+    requestInFlight.current = true;
+    setErrorMsg('');
+    setIsPublishing(true);
     const finalRating = calculateCardReadiness(editableCard);
 
     const newCard: TaskCard = {
@@ -228,7 +217,7 @@ export const TaskConstructorModal: React.FC<TaskConstructorModalProps> = ({
       )
         ? company.toLowerCase()
         : 'custom') as any,
-      title: editableCard.title || 'Новая задача',
+      title: editableCard.title || '',
       shortSummary: editableCard.shortSummary || editableCard.title || '',
       context: editableCard.context || '',
       dataAndMaterials: editableCard.dataAndMaterials || '',
@@ -243,18 +232,25 @@ export const TaskConstructorModal: React.FC<TaskConstructorModalProps> = ({
       category,
       urgency: finalRating.score >= 90 ? 'urgent' : 'medium',
       deadlineDays: editableCard.deadlineDays || 14,
-      deadlineText: `${editableCard.deadlineDays || 14} дней`,
-      reward: editableCard.reward || '80 000 ₽',
-      tags: editableCard.tags || ['MVP', 'Code'],
+      deadlineText: `${editableCard.deadlineDays || 14} дней (ориентир)`,
+      reward: editableCard.reward || '',
+      tags: editableCard.tags || [],
       applicantsCount: 0,
       saved: false,
       hasApplied: false,
       datePosted: 'Только что',
-      aiGenerated: true,
+      aiGenerated: cardIsAi,
     };
 
-    onPublishCard(newCard);
-    onClose();
+    try {
+      await onPublishCard(newCard);
+      onClose();
+    } catch (error) {
+      setErrorMsg(errorMessage(error));
+    } finally {
+      requestInFlight.current = false;
+      setIsPublishing(false);
+    }
   };
 
   // Helper for level badges with dynamic red-to-bright-orange color coding
@@ -309,6 +305,8 @@ export const TaskConstructorModal: React.FC<TaskConstructorModalProps> = ({
 
           <button
             onClick={onClose}
+            disabled={isBusy}
+            aria-label="Закрыть конструктор"
             className="p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-white/[0.08] transition-colors"
           >
             <X className="w-5 h-5" />
@@ -365,6 +363,9 @@ export const TaskConstructorModal: React.FC<TaskConstructorModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-6 max-h-[72vh] overflow-y-auto">
+          {aiStatus && step > 1 && <p role="status" className="mb-4 p-3 rounded-xl border border-amber-400/30 text-xs text-amber-200">{aiStatus}</p>}
+          {errorMsg && <p role="alert" className="mb-4 p-3 rounded-xl border border-red-500/30 text-sm text-red-300">{errorMsg} Введённые данные сохранены; повторите действие после исправления ошибки.</p>}
+          <fieldset disabled={isBusy} className="min-w-0">
           {/* STEP 1: Ввод черновика задачи */}
           {step === 1 && (
             <div className="space-y-5">
@@ -448,13 +449,6 @@ export const TaskConstructorModal: React.FC<TaskConstructorModalProps> = ({
                 />
               </div>
 
-              {errorMsg && (
-                <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-300">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <span>{errorMsg}</span>
-                </div>
-              )}
-
               <div className="pt-3 border-t border-white/[0.08] flex items-center justify-end gap-3">
                 <button
                   type="button"
@@ -472,7 +466,7 @@ export const TaskConstructorModal: React.FC<TaskConstructorModalProps> = ({
                   {isLoadingQuestions ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>ИИ анализирует полноту...</span>
+                      <span>Получаем уточняющие вопросы...</span>
                     </>
                   ) : (
                     <>
@@ -493,7 +487,7 @@ export const TaskConstructorModal: React.FC<TaskConstructorModalProps> = ({
                   <Wand2 className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
                   <div>
                     <h4 className="text-sm font-bold text-white">
-                      Шаг 2. ИИ выявил недостающие сведения для качественного ТЗ
+                      Шаг 2. Уточните сведения для качественного ТЗ
                     </h4>
                     <p className="text-xs text-neutral-300 mt-0.5">
                       Ответьте на вопросы, чтобы карточка получила высокий рейтинг готовности и привлекла сильные студенческие команды.
@@ -852,11 +846,12 @@ export const TaskConstructorModal: React.FC<TaskConstructorModalProps> = ({
                   className="flex items-center gap-2 px-8 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-400 text-neutral-950 font-extrabold text-sm shadow-xl shadow-emerald-500/25 hover:brightness-110 active:scale-95 transition-all"
                 >
                   <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
-                  <span>Подтвердить и опубликовать в каталоге ({rating.score} б.)</span>
+                  <span>{isPublishing ? 'Сохраняем карточку…' : `Подтвердить и опубликовать в каталоге (${rating.score} б.)`}</span>
                 </button>
               </div>
             </div>
           )}
+          </fieldset>
         </div>
       </div>
     </div>

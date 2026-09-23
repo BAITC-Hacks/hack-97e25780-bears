@@ -27,6 +27,7 @@ interface BusinessDashboardProps {
   onOpenConstructor: () => void;
   onAcceptProposal: (proposalId: string) => void;
   onRejectProposal: (proposalId: string) => void;
+  pendingSelections?: string[];
   onViewCardDetails: (card: TaskCard) => void;
 }
 
@@ -38,6 +39,7 @@ export const BusinessDashboard: React.FC<BusinessDashboardProps> = ({
   onOpenConstructor,
   onAcceptProposal,
   onRejectProposal,
+  pendingSelections = [],
   onViewCardDetails,
 }) => {
   const [selectedCardFilter, setSelectedCardFilter] = useState<string>('all');
@@ -141,7 +143,7 @@ export const BusinessDashboard: React.FC<BusinessDashboardProps> = ({
                 <span>Предложения студенческих команд ({filteredProposals.length})</span>
               </h2>
               <p className="text-xs text-neutral-400 mt-0.5">
-                Ручной выбор бизнеса (автоматическое назначение запрещено правилами хакатона)
+                Ручной выбор бизнеса в текущем MVP
               </p>
             </div>
 
@@ -187,7 +189,7 @@ export const BusinessDashboard: React.FC<BusinessDashboardProps> = ({
                         </span>
                         {prop.status === 'accepted' && (
                           <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
-                            ✓ Выбрана бизнесом (+{prop.awardedScore || 85} б.)
+                            ✓ Выбрана бизнесом
                           </span>
                         )}
                         {prop.status === 'rejected' && (
@@ -213,16 +215,18 @@ export const BusinessDashboard: React.FC<BusinessDashboardProps> = ({
                       <>
                         <button
                           onClick={() => onRejectProposal(prop.id)}
+                          disabled={pendingSelections.includes(prop.id)}
                           className="px-3.5 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/20 text-xs font-bold transition-colors"
                         >
                           Отклонить
                         </button>
                         <button
                           onClick={() => onAcceptProposal(prop.id)}
+                          disabled={pendingSelections.includes(prop.id)}
                           className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:brightness-110 text-neutral-950 text-xs font-extrabold shadow-md shadow-emerald-500/20 transition-all"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Выбрать команду</span>
+                          <span>{pendingSelections.includes(prop.id) ? 'Сохраняем…' : 'Выбрать команду'}</span>
                         </button>
                       </>
                     ) : prop.status === 'accepted' ? (
@@ -265,7 +269,7 @@ export const BusinessDashboard: React.FC<BusinessDashboardProps> = ({
                 {/* Prototype link & Telegram */}
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs font-mono text-neutral-400 border-t border-white/[0.04]">
                   <div className="flex items-center gap-4">
-                    <a
+                    {prop.prototypeLink && <a
                       href={prop.prototypeLink}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -274,7 +278,7 @@ export const BusinessDashboard: React.FC<BusinessDashboardProps> = ({
                       <Github className="w-3.5 h-3.5" />
                       <span>{prop.prototypeLink}</span>
                       <ExternalLink className="w-3 h-3 ml-0.5" />
-                    </a>
+                    </a>}
 
                     <span className="flex items-center gap-1">
                       <MessageSquare className="w-3.5 h-3.5 text-neutral-500" />

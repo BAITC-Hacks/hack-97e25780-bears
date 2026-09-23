@@ -91,7 +91,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
             <div className="flex items-center gap-2 text-amber-300">
               <Coins className="w-4 h-4 text-amber-400" />
               <span className="text-neutral-400">Награда за решение:</span>
-              <span className="font-bold text-white">{card.reward}</span>
+              <span className="font-bold text-white">{card.reward || 'Не указана'}</span>
             </div>
             <div className="flex items-center gap-2 text-red-300">
               <Clock className="w-4 h-4 text-red-400" />
@@ -116,7 +116,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
               2. Предоставляемые данные, примеры и материалы (макс. 20 б.)
             </h4>
             <p className="text-xs text-neutral-200 leading-relaxed">
-              {card.dataAndMaterials || 'Информация будет предоставлена куратором после подтверждения команды.'}
+              {card.dataAndMaterials || 'Не указано'}
             </p>
           </div>
 
@@ -127,7 +127,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                 3. Ожидаемый результат (макс. 15 б.)
               </h4>
               <p className="text-xs text-neutral-200 leading-relaxed">
-                {card.expectedResult || 'Рабочий репозиторий с кодом, документацией и демонстрационным стендом.'}
+                {card.expectedResult || 'Не указано'}
               </p>
             </div>
 
@@ -136,7 +136,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                 4. Критерии успеха и приёмки (макс. 15 б.)
               </h4>
               <p className="text-xs text-neutral-200 leading-relaxed">
-                {card.successCriteria || 'Прохождение функциональных тестов и соблюдение сроков выполнения.'}
+                {card.successCriteria || 'Не указано'}
               </p>
             </div>
           </div>
@@ -148,7 +148,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                 5. Ограничения и стек (10 б.)
               </span>
               <p className="text-neutral-200 font-medium">
-                {card.constraints || 'Python / React / Docker'}
+                {card.constraints || 'Не указано'}
               </p>
             </div>
 
@@ -157,7 +157,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                 6. Пользователи решения (10 б.)
               </span>
               <p className="text-neutral-200 font-medium">
-                {card.targetUsers || 'Клиенты и сотрудники компании'}
+                {card.targetUsers || 'Не указано'}
               </p>
             </div>
 
@@ -166,7 +166,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                 7. Куратор от бизнеса (10 б.)
               </span>
               <p className="text-amber-300 font-mono font-medium">
-                {card.businessContact || 'Куратор направления (@tech_lead)'}
+                {card.businessContact || 'Не указано'}
               </p>
             </div>
           </div>

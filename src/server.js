@@ -1,6 +1,7 @@
 import 'dotenv/config';
+import { pathToFileURL } from 'node:url';
 import OpenAI from 'openai';
-import { createApp } from './app.js';
+import { createApp } from './backend-app.js';
 import { demoSeed } from './seed.js';
 import { FrontendAiService } from './services/frontend-ai-service.js';
 import { GeminiCardService } from './services/gemini-card-service.js';
@@ -18,7 +19,7 @@ const apiKey = process.env.OPENAI_API_KEY?.trim();
 const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
 const client = apiKey ? new OpenAI({ apiKey, maxRetries: 0 }) : null;
 
-const app = createApp({
+export const app = createApp({
   store: new MemoryStore(demoSeed),
   questionService: new QuestionService({
     client,
@@ -40,6 +41,11 @@ const app = createApp({
   aiProviders: { openai: Boolean(client), gemini: Boolean(geminiApiKey) },
 });
 
-app.listen(port, () => {
-  console.log(`Challenge Hub API is running at http://localhost:${port}`);
-});
+export { port };
+
+// Importing the configured API into the shared UI server must not open a second port.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  app.listen(port, () => {
+    console.log(`Challenge Hub API is running at http://localhost:${port}`);
+  });
+}

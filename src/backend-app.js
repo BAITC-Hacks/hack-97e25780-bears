@@ -5,6 +5,7 @@ import { FrontendAiService } from './services/frontend-ai-service.js';
 import { GeminiCardService } from './services/gemini-card-service.js';
 import { QUESTION_TARGET_FIELDS, QuestionService } from './services/question-service.js';
 import { MemoryStore } from './storage/memory-store.js';
+import { createUiRouter } from './routes/ui-router.js';
 
 const EDITABLE_TASK_FIELDS = [
   'title',
@@ -151,6 +152,7 @@ export function createApp({
     return next();
   });
   app.use(express.json({ limit: '1mb' }));
+  app.use('/api/ui', createUiRouter({ store }));
 
   app.get('/health', (req, res) => {
     res.json({

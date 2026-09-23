@@ -240,9 +240,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {!collapsed && (
                   <div className="flex items-center justify-between flex-1">
                     <span>Отклики студентов</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 font-bold font-mono">
-                      +3 новых
-                    </span>
                   </div>
                 )}
               </button>

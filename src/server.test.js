@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import request from 'supertest';
-import { createApp } from './app.js';
+import { createApp } from './backend-app.js';
 import { QuestionService } from './services/question-service.js';
 import { MemoryStore } from './storage/memory-store.js';
 

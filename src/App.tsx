@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { errorMessage, projectApi } from './api';
 import {
   UserRole,
   TaskCard,
@@ -11,10 +12,8 @@ import {
   TeamSquad
 } from './types';
 import {
-  INITIAL_CARDS,
   INITIAL_STUDENT_PROFILE,
   INITIAL_BUSINESS_PROFILE,
-  INITIAL_PROPOSALS,
   INITIAL_TEAMS
 } from './data/initialData';
 import { Header } from './components/Header';
@@ -43,11 +42,42 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>('cards');
 
   // State collections
-  const [cards, setCards] = useState<TaskCard[]>(INITIAL_CARDS);
+  const [cards, setCards] = useState<TaskCard[]>([]);
   const [studentProfile, setStudentProfile] = useState<StudentProfile>(INITIAL_STUDENT_PROFILE);
   const [businessProfile, setBusinessProfile] = useState<BusinessProfile>(INITIAL_BUSINESS_PROFILE);
-  const [proposals, setProposals] = useState<TeamProposal[]>(INITIAL_PROPOSALS);
+  const [proposals, setProposals] = useState<TeamProposal[]>([]);
   const [teams, setTeams] = useState<TeamSquad[]>(INITIAL_TEAMS);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [reloadVersion, setReloadVersion] = useState(0);
+  const [selectionError, setSelectionError] = useState('');
+  const [pendingSelections, setPendingSelections] = useState<string[]>([]);
+  const selectionRequests = useRef(new Set<string>());
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setIsLoading(true);
+    setLoadError('');
+    projectApi.state(controller.signal)
+      .then((state) => {
+        if (!Array.isArray(state.cards) || !Array.isArray(state.proposals)) {
+          throw new Error('Сервер вернул неверный формат каталога.');
+        }
+        setCards(state.cards.map((card) => ({
+          ...card,
+          hasApplied: state.proposals.some((proposal) =>
+            proposal.cardId === card.id && proposal.studentId === studentProfile.id),
+        })));
+        setProposals(state.proposals);
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) setLoadError(errorMessage(error));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsLoading(false);
+      });
+    return () => controller.abort();
+  }, [reloadVersion, studentProfile.id]);
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -66,6 +96,14 @@ export default function App() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const openConstructor = () => {
+    if (isLoading || loadError) {
+      showToast('Дождитесь загрузки каталога или повторите подключение к серверу.');
+      return;
+    }
+    setIsConstructorOpen(true);
   };
 
   // Filtered and Sorted cards calculation
@@ -137,11 +175,13 @@ export default function App() {
     setSelectedCardForDetails(card);
   };
 
-  const handleSubmitProposal = (
+  const handleSubmitProposal = async (
     proposalData: Omit<TeamProposal, 'id' | 'submittedAt' | 'status'>
   ) => {
     const targetCard = cards.find((c) => c.id === proposalData.cardId);
-    if (!targetCard) return;
+    if (!targetCard) throw new Error('Задача не найдена в каталоге. Обновите страницу.');
+
+    const { proposal: newProposal } = await projectApi.submitProposal(proposalData);
 
     // Mark card as applied
     setCards((prev) =>
@@ -152,46 +192,40 @@ export default function App() {
       )
     );
 
-    // Create new proposal
-    const newProposal: TeamProposal = {
-      ...proposalData,
-      id: `prop-${Date.now()}`,
-      submittedAt: 'Только что',
-      status: 'pending',
-    };
-
-    setProposals([newProposal, ...proposals]);
+    setProposals((previous) => [newProposal, ...previous]);
     showToast(`Предложение команды успешно отправлено на рассмотрение бизнесу!`);
   };
 
-  const handlePublishNewCard = (newCard: TaskCard) => {
-    setCards([newCard, ...cards]);
-    showToast(`Задача успешно опубликована в каталоге с рейтингом ${newCard.readinessScore} б.!`);
+  const handlePublishNewCard = async (newCard: TaskCard) => {
+    const { card } = await projectApi.publishCard(newCard);
+    setCards((previous) => [card, ...previous]);
+    showToast(`Задача сохранена на сервере и опубликована с рейтингом ${card.readinessScore} б.!`);
   };
 
-  const handleAcceptProposal = (proposalId: string) => {
-    setProposals((prev) =>
-      prev.map((p) =>
-        p.id === proposalId ? { ...p, status: 'accepted', awardedScore: 85 } : p
-      )
-    );
-    showToast('Команда выбрана к выполнению этапа! Начислено +85 баллов прогресса.');
-  };
-
-  const handleRejectProposal = (proposalId: string) => {
-    setProposals((prev) =>
-      prev.map((p) => (p.id === proposalId ? { ...p, status: 'rejected' } : p))
-    );
-    showToast('Предложение команды отклонено');
+  const handleSelection = async (proposalId: string, action: 'accept' | 'reject') => {
+    if (selectionRequests.current.has(proposalId)) return;
+    selectionRequests.current.add(proposalId);
+    setPendingSelections([...selectionRequests.current]);
+    setSelectionError('');
+    try {
+      const { proposal } = await projectApi.selectProposal(proposalId, action);
+      setProposals((previous) => previous.map((item) => item.id === proposalId ? proposal : item));
+      showToast(action === 'accept' ? 'Выбор команды сохранён на сервере.' : 'Отклонение предложения сохранено на сервере.');
+    } catch (error) {
+      setSelectionError(errorMessage(error));
+    } finally {
+      selectionRequests.current.delete(proposalId);
+      setPendingSelections([...selectionRequests.current]);
+    }
   };
 
   const handleJoinTeam = (teamId: string) => {
-    showToast('Заявка на вступление в команду отправлена');
+    showToast('Демонстрация: заявка на вступление не отправляется на сервер.');
   };
 
   const handleCreateTeam = (newTeam: TeamSquad) => {
     setTeams([newTeam, ...teams]);
-    showToast('Новая команда создана');
+    showToast('Демо-команда создана только в текущей вкладке.');
   };
 
   const savedCount = cards.filter((c) => c.saved).length;
@@ -215,7 +249,7 @@ export default function App() {
           setActiveTab('cards');
         }}
         activeCardsCount={cards.length}
-        onOpenAiCreator={() => setIsConstructorOpen(true)}
+        onOpenAiCreator={openConstructor}
       />
 
       {/* Desktop Layout Frame (Sidebar + Main Content Canvas) */}
@@ -227,7 +261,7 @@ export default function App() {
           onTabChange={setActiveTab}
           studentProfile={studentProfile}
           businessProfile={businessProfile}
-          onOpenAiCreator={() => setIsConstructorOpen(true)}
+          onOpenAiCreator={openConstructor}
           savedCount={savedCount}
           appliedCount={appliedCount}
         />
@@ -235,16 +269,28 @@ export default function App() {
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
           <div className="max-w-7xl mx-auto space-y-6">
+            <p className="text-xs text-neutral-400 rounded-xl border border-white/[0.08] p-3">
+              Демо без авторизации. Карточки, отклики и выбор общие для всех ролей и хранятся в памяти сервера до его перезапуска. Профили, команды и закладки — демонстрационные.
+            </p>
+            {isLoading && <p role="status" className="text-sm text-amber-300">Загружаем каталог с сервера…</p>}
+            {loadError && (
+              <div role="alert" className="p-4 rounded-xl border border-red-500/30 text-red-300 text-sm">
+                {loadError}
+                <button onClick={() => setReloadVersion((value) => value + 1)} className="ml-3 underline">Повторить загрузку</button>
+              </div>
+            )}
+            {selectionError && <p role="alert" className="text-sm text-red-300">{selectionError}</p>}
             {/* Business View */}
-            {currentRole === 'business' ? (
+            {!isLoading && !loadError && (currentRole === 'business' ? (
               <BusinessDashboard
                 businessProfile={businessProfile}
                 cards={cards}
                 proposals={proposals}
                 activeTab={activeTab}
-                onOpenConstructor={() => setIsConstructorOpen(true)}
-                onAcceptProposal={handleAcceptProposal}
-                onRejectProposal={handleRejectProposal}
+                onOpenConstructor={openConstructor}
+                onAcceptProposal={(id) => { void handleSelection(id, 'accept'); }}
+                onRejectProposal={(id) => { void handleSelection(id, 'reject'); }}
+                pendingSelections={pendingSelections}
                 onViewCardDetails={handleViewDetails}
               />
             ) : (
@@ -276,7 +322,7 @@ export default function App() {
                           </span>
                         </h1>
                         <p className="text-xs text-neutral-400 mt-1">
-                          Задачи с рейтингом ≥40 б. доступны для откликов; задачи с рейтингом 90–100 б. выделены в топе
+                          Рейтинг показывает полноту задачи; задачи с рейтингом 90–100 б. выделены в топе
                         </p>
                       </div>
 
@@ -343,7 +389,7 @@ export default function App() {
                   </div>
                 )}
               </>
-            )}
+            ))}
           </div>
         </main>
       </div>
@@ -351,7 +397,7 @@ export default function App() {
       {/* Interactive Modals */}
       {/* 1. Task Details Modal */}
       <TaskDetailsModal
-        card={selectedCardForDetails}
+        card={cards.find((card) => card.id === selectedCardForDetails?.id) || selectedCardForDetails}
         isOpen={!!selectedCardForDetails}
         onClose={() => setSelectedCardForDetails(null)}
         onApply={(card) => {
@@ -362,21 +408,22 @@ export default function App() {
       />
 
       {/* 2. Team Proposal Apply Modal */}
-      <ApplyModal
+      {selectedCardForApply && <ApplyModal
+        key={selectedCardForApply.id}
         card={selectedCardForApply}
         student={studentProfile}
         isOpen={!!selectedCardForApply}
         onClose={() => setSelectedCardForApply(null)}
         onSubmitProposal={handleSubmitProposal}
-      />
+      />}
 
       {/* 3. Task Constructor Modal (Сквозной сценарий хакатона: Черновик -> Уточнения ИИ -> Карточка -> Рейтинг -> Публикация) */}
-      <TaskConstructorModal
+      {isConstructorOpen && <TaskConstructorModal
         isOpen={isConstructorOpen}
         onClose={() => setIsConstructorOpen(false)}
         onPublishCard={handlePublishNewCard}
         defaultCompany={businessProfile.company}
-      />
+      />}
     </div>
   );
 }

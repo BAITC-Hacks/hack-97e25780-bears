@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { errorMessage } from '../api';
 import { TaskCard, StudentProfile, TeamProposal } from '../types';
 import { BrandLogo } from './BrandLogos';
 import {
@@ -22,7 +23,7 @@ interface ApplyModalProps {
   student: StudentProfile;
   isOpen: boolean;
   onClose: () => void;
-  onSubmitProposal: (proposal: Omit<TeamProposal, 'id' | 'submittedAt' | 'status'>) => void;
+  onSubmitProposal: (proposal: Omit<TeamProposal, 'id' | 'submittedAt' | 'status'>) => Promise<void>;
 }
 
 export const ApplyModal: React.FC<ApplyModalProps> = ({
@@ -32,34 +33,35 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
   onClose,
   onSubmitProposal,
 }) => {
-  if (!isOpen || !card) return null;
-
   const [teamName, setTeamName] = useState(student.teamName || 'Neural Bears Squad');
-  const [solutionIdea, setSolutionIdea] = useState(
-    `Предлагаем реализовать микросервис на стеке ${card.tags.slice(0, 3).join(' + ')} с кэшированием результатов и легким веб-интерфейсом для демонстрации работы.`
-  );
-  const [workPlan, setWorkPlan] = useState(
-    `1. Разработка архитектуры и согласование API (1-2 дня)\n2. Реализация основного функционала и покрытие тестами (3-4 дня)\n3. Развертывание демо-стенда в Docker и подготовка README (5 день)`
-  );
-  const [proposedDeadline, setProposedDeadline] = useState(card.deadlineText || '7 дней');
-  const [prototypeLink, setPrototypeLink] = useState('https://github.com/ivan-petrov-ml/challenge-hub-prototype');
+  const [solutionIdea, setSolutionIdea] = useState('');
+  const [workPlan, setWorkPlan] = useState('');
+  const [proposedDeadline, setProposedDeadline] = useState('');
+  const [prototypeLink, setPrototypeLink] = useState('');
   const [telegram, setTelegram] = useState(student.telegram || '@ivan_startcard');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const submitting = useRef(false);
+
+  if (!isOpen || !card) return null;
 
   const fillQuickDemoProposal = () => {
     setTeamName('Neural Bears Squad');
     setSolutionIdea(`Архитектура на ${card.tags[0] || 'Python'} с асинхронной обработкой очереди задач и Swagger-документацией.`);
     setWorkPlan('Этап 1: Интеграция данных и базовая модель. Этап 2: Тестирование производительности. Этап 3: Деплой прототипа.');
     setProposedDeadline(`${card.deadlineDays} дней`);
-    setPrototypeLink('https://github.com/ivan-petrov-ml/hackathon-mvp-demo');
+    setPrototypeLink('https://example.com/demo');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSuccess(true);
-
-    setTimeout(() => {
-      onSubmitProposal({
+    if (submitting.current) return;
+    submitting.current = true;
+    setIsSubmitting(true);
+    setSubmitError('');
+    try {
+      await onSubmitProposal({
         cardId: card.id,
         cardTitle: card.title,
         companyName: card.company,
@@ -73,9 +75,13 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
         prototypeLink,
         telegram,
       });
-      setIsSuccess(false);
-      onClose();
-    }, 1200);
+      setIsSuccess(true);
+    } catch (error) {
+      setSubmitError(errorMessage(error));
+    } finally {
+      submitting.current = false;
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -100,6 +106,8 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
 
           <button
             onClick={onClose}
+            disabled={isSubmitting}
+            aria-label="Закрыть отклик"
             className="p-1.5 rounded-xl text-neutral-400 hover:text-white hover:bg-white/[0.08] transition-colors"
           >
             <X className="w-5 h-5" />
@@ -121,6 +129,8 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+            {submitError && <p role="alert" className="text-sm text-red-300">{submitError} Данные формы сохранены.</p>}
+            <fieldset disabled={isSubmitting} className="space-y-4 min-w-0">
             {/* Quick Demo Pre-fill button */}
             <div className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06]">
               <div className="flex items-center gap-2 text-xs font-mono text-neutral-300">
@@ -212,13 +222,12 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
 
               <div>
                 <label className="block text-xs font-mono text-neutral-400 uppercase mb-1">
-                  Ссылка на прототип / Git
+                  Ссылка на прототип / Git (необязательно)
                 </label>
                 <input
                   type="text"
                   value={prototypeLink}
                   onChange={(e) => setPrototypeLink(e.target.value)}
-                  required
                   placeholder="https://github.com/..."
                   className="w-full bg-[#1F212D] text-xs text-white px-3 py-2.5 rounded-xl border border-white/[0.08] focus:border-amber-400 focus:outline-none"
                 />
@@ -254,9 +263,10 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
                 className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 text-neutral-950 font-extrabold text-xs shadow-lg shadow-orange-500/20 hover:brightness-110 active:scale-95 transition-all"
               >
                 <Send className="w-3.5 h-3.5" />
-                <span>Отправить предложение бизнесу</span>
+                <span>{isSubmitting ? 'Отправляем…' : 'Отправить предложение бизнесу'}</span>
               </button>
             </div>
+            </fieldset>
           </form>
         )}
       </div>

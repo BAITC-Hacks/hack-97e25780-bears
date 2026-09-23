@@ -16,13 +16,13 @@ export const INITIAL_STUDENT_PROFILE: StudentProfile = {
 };
 
 export const INITIAL_BUSINESS_PROFILE: BusinessProfile = {
-  name: 'Александр Новиков',
-  roleTitle: 'Head of Developer Relations & Talent',
-  company: 'NVIDIA Innovation Hub',
-  id: 'BIZ-8842',
+  name: 'Демо-представитель',
+  roleTitle: 'Представитель учебной компании',
+  company: 'Учебная компания (демо)',
+  id: 'DEMO-BUSINESS',
   avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-  verified: true,
-  activeCardsCount: 5
+  verified: false,
+  activeCardsCount: 0
 };
 
 const rawCards = [
